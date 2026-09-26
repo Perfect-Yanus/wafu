@@ -73,6 +73,8 @@ export class Game {
     // UI and Joystick
     this.uiManager = new UIManager(uiContainer, this.state, asmrAudio, this.studio, this.customizer);
     this.uiManager.setOnCityReset(() => this.resetCity());
+    this.uiManager.setOnJump(() => this.rollingBall.jump());
+    this.uiManager.setOnBoost(() => this.rollingBall.triggerBoost(2.0));
 
     this.joystick = new TouchJoystick(uiContainer);
 
@@ -133,10 +135,21 @@ export class Game {
     // Keyboard listeners
     window.addEventListener('keydown', (e) => {
       this.keys[e.key.toLowerCase()] = true;
+      if (e.code === 'Space') {
+        this.keys['space'] = true;
+        this.rollingBall.jump();
+        e.preventDefault();
+      }
+      if (e.key === 'Shift') {
+        this.rollingBall.triggerBoost(1.5);
+      }
       asmrAudio.unlock();
     });
     window.addEventListener('keyup', (e) => {
       this.keys[e.key.toLowerCase()] = false;
+      if (e.code === 'Space') {
+        this.keys['space'] = false;
+      }
     });
 
     // Window resize
@@ -227,15 +240,16 @@ export class Game {
     this.rollingBall.update(dt);
     this.cityWorld.clampBallToBounds(this.rollingBall);
 
-    // 3. Collision & Katamari absorption
-    this.cityWorld.checkCollisions(this.rollingBall);
+    // 3. Collision & Katamari absorption & Gadgets
+    this.cityWorld.checkCollisions(this.rollingBall, dt);
 
-    // 4. Update HUD stats
+    // 4. Update HUD stats & speedometer
     const diameterCm = this.rollingBall.getRadius() * 200;
     this.state.updateStats({
       currentDiameterCm: diameterCm,
       absorbedCount: this.rollingBall.getAbsorbedCount(),
     });
+    this.uiManager.updateSpeed(this.rollingBall.getVelocity().length(), this.rollingBall.isBoosting());
 
     // 5. Third-person follow camera
     const ballPos = this.rollingBall.getPosition();

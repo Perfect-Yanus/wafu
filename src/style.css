@@ -195,17 +195,79 @@ html, body {
   color: var(--text-muted);
 }
 
-.controls-tag {
-  display: inline-block;
-  padding: 2px 7px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 6px;
-  color: #fff;
-  font-weight: 700;
-  margin: 0 2px;
+/* Speedometer Badge */
+.speed-value {
+  color: var(--accent-gold);
+  font-weight: 800;
+  transition: all 0.2s ease;
 }
 
-/* Studio Left Toolbar (ASMR Tools) */
+.speed-value.boost-active {
+  color: #ff0055;
+  text-shadow: 0 0 10px #ff0055, 0 0 20px #ff4d88;
+  animation: speedPulse 0.4s infinite alternate;
+}
+
+@keyframes speedPulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.15); }
+}
+
+/* Floating Action Buttons for City (Jump & Boost) */
+.city-action-buttons {
+  position: absolute;
+  right: 24px;
+  bottom: 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  pointer-events: auto;
+  z-index: 10;
+}
+
+.btn-action {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  transition: transform 0.1s ease, box-shadow 0.15s ease;
+}
+
+.btn-action .btn-subtext {
+  font-size: 9px;
+  font-weight: 800;
+  margin-top: 1px;
+}
+
+.btn-action:hover {
+  transform: scale(1.06);
+}
+
+.btn-action:active {
+  transform: scale(0.92);
+}
+
+.btn-jump {
+  background: linear-gradient(135deg, #3a86ff, #0056b3);
+  box-shadow: 0 6px 20px rgba(58, 134, 255, 0.5);
+}
+
+.btn-boost {
+  background: linear-gradient(135deg, #ff006e, #fb5607);
+  box-shadow: 0 6px 20px rgba(255, 0, 110, 0.5);
+}
+
+/* Studio Left Toolbar (ASMR & Smash Tools) */
 .studio-tools-bar {
   position: absolute;
   left: 20px;
@@ -213,8 +275,19 @@ html, body {
   transform: translateY(-50%);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   padding: 12px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.tool-section-label {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--accent-cyan);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: center;
 }
 
 .tool-btn {
@@ -249,6 +322,59 @@ html, body {
   background: linear-gradient(135deg, var(--accent-pink), #c9184a);
   border-color: #ff758f;
   box-shadow: 0 0 16px var(--accent-pink-glow);
+}
+
+.smash-btn {
+  background: rgba(255, 0, 90, 0.12);
+  border-color: rgba(255, 0, 90, 0.3);
+}
+
+.smash-btn.active {
+  background: linear-gradient(135deg, #ff0055, #9b002c);
+  border-color: #ff3377;
+  box-shadow: 0 0 18px rgba(255, 0, 85, 0.6);
+}
+
+/* Wafu Maker DIY Section */
+.diy-section {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.fillings-grid, .shells-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.filling-card, .shell-card {
+  padding: 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--panel-border);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.filling-card:hover, .shell-card:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.filling-card.active {
+  background: rgba(255, 77, 136, 0.2);
+  border-color: var(--accent-pink);
+  box-shadow: 0 0 10px var(--accent-pink-glow);
+}
+
+.shell-card.active {
+  background: rgba(0, 229, 255, 0.2);
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 10px var(--accent-cyan-glow);
 }
 
 .tool-btn.active .tool-label {

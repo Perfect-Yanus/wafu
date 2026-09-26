@@ -3,6 +3,7 @@ import { AsmrAudioEngine } from '../audio/AsmrAudioEngine';
 import { SquishyBallStudio, StudioTool } from '../studio/SquishyBallStudio';
 import { BallCustomizer } from '../customizer/BallCustomizer';
 import { MaterialPresetId } from '../customizer/Materials';
+import { FillingType, ShellType, WafuMaker } from '../studio/WafuMaker';
 
 export class UIManager {
   private container: HTMLElement;
@@ -12,6 +13,8 @@ export class UIManager {
   private customizer: BallCustomizer;
 
   private onCityResetCb: (() => void) | null = null;
+  private onJumpCb: (() => void) | null = null;
+  private onBoostCb: (() => void) | null = null;
 
   constructor(
     container: HTMLElement,
@@ -34,6 +37,27 @@ export class UIManager {
     this.onCityResetCb = cb;
   }
 
+  public setOnJump(cb: () => void): void {
+    this.onJumpCb = cb;
+  }
+
+  public setOnBoost(cb: () => void): void {
+    this.onBoostCb = cb;
+  }
+
+  public updateSpeed(speed: number, isBoosting: boolean): void {
+    const spdEl = document.getElementById('hud-speed');
+    if (spdEl) {
+      const kmh = (speed * 3.6).toFixed(0);
+      spdEl.textContent = `${kmh} km/h`;
+      if (isBoosting) {
+        spdEl.classList.add('boost-active');
+      } else {
+        spdEl.classList.remove('boost-active');
+      }
+    }
+  }
+
   private render(): void {
     const mode = this.state.getMode();
     const stats = this.state.getStats();
@@ -44,7 +68,7 @@ export class UIManager {
         <div class="hud-group-left">
           <div class="glass-panel hud-badge">
             <span class="badge-icon">🌸</span>
-            <span>와뿌볼 크기:</span>
+            <span>와뿌볼:</span>
             <span class="diameter-value" id="hud-diameter">${stats.currentDiameterCm.toFixed(1)} cm</span>
           </div>
           <div class="glass-panel hud-badge">
@@ -53,6 +77,16 @@ export class UIManager {
             <span class="highlight" id="hud-absorbed">${stats.absorbedCount}</span>
             <span style="color:var(--text-muted); font-size:12px;">개</span>
           </div>
+          ${
+            mode === 'CITY'
+              ? `
+            <div class="glass-panel hud-badge">
+              <span class="badge-icon">⚡</span>
+              <span id="hud-speed" class="speed-value">0 km/h</span>
+            </div>
+          `
+              : ''
+          }
         </div>
 
         <div class="hud-group-right">
@@ -79,8 +113,20 @@ export class UIManager {
 
   private renderCityOverlay(): string {
     return `
+      <!-- Mobile / Screen Action Buttons -->
+      <div class="city-action-buttons">
+        <button id="btn-city-jump" class="btn-action btn-jump" title="점프 (Space)">
+          <span>🦘</span>
+          <span class="btn-subtext">점프 (Space)</span>
+        </button>
+        <button id="btn-city-boost" class="btn-action btn-boost" title="대시 부스트 (Shift)">
+          <span>🚀</span>
+          <span class="btn-subtext">부스트 (Shift)</span>
+        </button>
+      </div>
+
       <footer class="glass-panel city-bottom-bar">
-        <span>🎮 조작법: <span class="controls-tag">W</span><span class="controls-tag">A</span><span class="controls-tag">S</span><span class="controls-tag">D</span> 또는 <span class="controls-tag">방향키</span> / 모바일은 화면 터치 드래그</span>
+        <span>🎮 조작: <span class="controls-tag">WASD/방향키</span> 이동 · <span class="controls-tag">Shift</span> 부스트 · <span class="controls-tag">Space</span> 점프 · 가젯: <span style="color:#00e5ff; font-weight:700;">가속패드</span>, <span style="color:#3a86ff; font-weight:700;">트램펄린</span>, <span style="color:#ffd700; font-weight:700;">자석</span>, <span style="color:#a06535; font-weight:700;">파괴울타리</span></span>
         <button id="btn-city-reset" class="btn-secondary" style="font-size:12px;">🔄 도시 재생성</button>
       </footer>
     `;
@@ -91,24 +137,43 @@ export class UIManager {
     const activeTool = this.studio.getTool();
     const savedBalls = this.customizer.collection.getAll();
     const activeBall = this.customizer.collection.getActiveBall();
+    const wafuMaker = this.studio.wafuMaker;
 
-    const tools: { id: StudioTool; icon: string; label: string }[] = [
-      { id: 'poke', icon: '👆', label: '찌르기' },
-      { id: 'stretch', icon: '🤲', label: '늘리기' },
-      { id: 'crack', icon: '⚡', label: '크런치' },
-      { id: 'slice', icon: '🗡️', label: '슬라이스' },
-      { id: 'pop', icon: '💥', label: '팝 터뜨리기' },
+    const tools: { id: StudioTool; icon: string; label: string; group: 'tactile' | 'smash' }[] = [
+      { id: 'poke', icon: '👆', label: '찌르기', group: 'tactile' },
+      { id: 'stretch', icon: '🤲', label: '늘리기', group: 'tactile' },
+      { id: 'crack', icon: '⚡', label: '크런치', group: 'tactile' },
+      { id: 'slice', icon: '🗡️', label: '슬라이스', group: 'tactile' },
+      { id: 'hammer', icon: '🔨', label: '해머 스매시', group: 'smash' },
+      { id: 'hydraulic', icon: '⚡', label: '유압 프레스', group: 'smash' },
+      { id: 'wire_cutter', icon: '🧇', label: '와이어 절단', group: 'smash' },
+      { id: 'pop', icon: '💥', label: '메가 팝!', group: 'smash' },
     ];
 
     const presets = this.customizer.registry.getAvailablePresets();
 
     return `
-      <!-- LEFT TOOLBAR: ASMR TACTILE TOOLS -->
+      <!-- LEFT TOOLBAR: ASMR TACTILE & SMASH TOOLS -->
       <nav class="glass-panel studio-tools-bar">
+        <div class="tool-section-label">촉감 ASMR</div>
         ${tools
+          .filter((t) => t.group === 'tactile')
           .map(
             (t) => `
-          <button class="tool-btn ${activeTool === t.id ? 'active' : ''}" data-tool="${t.id}" title="${t.label} ASMR">
+          <button class="tool-btn ${activeTool === t.id ? 'active' : ''}" data-tool="${t.id}" title="${t.label}">
+            <span>${t.icon}</span>
+            <span class="tool-label">${t.label}</span>
+          </button>
+        `
+          )
+          .join('')}
+
+        <div class="tool-section-label" style="color: #ff3366; margin-top: 6px;">뿌시기 💥</div>
+        ${tools
+          .filter((t) => t.group === 'smash')
+          .map(
+            (t) => `
+          <button class="tool-btn smash-btn ${activeTool === t.id ? 'active' : ''}" data-tool="${t.id}" title="${t.label}">
             <span>${t.icon}</span>
             <span class="tool-label">${t.label}</span>
           </button>
@@ -117,11 +182,48 @@ export class UIManager {
           .join('')}
       </nav>
 
-      <!-- RIGHT PANEL: CUSTOMIZER & COLLECTION -->
+      <!-- RIGHT PANEL: DIY WAFU MAKER & CUSTOMIZER -->
       <aside class="glass-panel studio-custom-panel">
         <div>
           <div class="panel-section-title">✨ 볼 이름</div>
           <input type="text" id="input-ball-name" class="btn-secondary" style="width: 100%; text-align: left; padding: 10px;" value="${customState.ballName}">
+        </div>
+
+        <!-- 🧪 WAFU MAKER DIY SECTION -->
+        <div class="diy-section">
+          <div class="panel-section-title">🧪 와뿌볼 만들기 (속재료 & 외피)</div>
+          
+          <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">속재료 채우기 (터치 사운드/촉감 변화)</div>
+          <div class="fillings-grid">
+            ${(Object.keys(WafuMaker.FILLINGS) as FillingType[])
+              .map((fId) => {
+                const f = WafuMaker.FILLINGS[fId];
+                const active = wafuMaker.hasFilling(fId);
+                return `
+                <div class="filling-card ${active ? 'active' : ''}" data-filling="${fId}">
+                  <span>${f.emoji}</span>
+                  <span class="filling-title">${f.name.split(' ')[0]}</span>
+                </div>
+              `;
+              })
+              .join('')}
+          </div>
+
+          <div style="font-size: 11px; color: var(--text-muted); margin: 8px 0 6px;">외피 선택</div>
+          <div class="shells-grid">
+            ${(Object.keys(WafuMaker.SHELLS) as ShellType[])
+              .map((sId) => {
+                const s = WafuMaker.SHELLS[sId];
+                const active = wafuMaker.getSelectedShell() === sId;
+                return `
+                <div class="shell-card ${active ? 'active' : ''}" data-shell="${sId}">
+                  <span>${s.emoji}</span>
+                  <span>${s.name.split(' ')[0]}</span>
+                </div>
+              `;
+              })
+              .join('')}
+          </div>
         </div>
 
         <div>
@@ -223,7 +325,21 @@ export class UIManager {
       });
     }
 
-    // City Reset
+    // City Buttons: Jump & Boost & Reset
+    const jumpBtn = document.getElementById('btn-city-jump');
+    if (jumpBtn) {
+      jumpBtn.addEventListener('click', () => {
+        this.onJumpCb?.();
+      });
+    }
+
+    const boostBtn = document.getElementById('btn-city-boost');
+    if (boostBtn) {
+      boostBtn.addEventListener('click', () => {
+        this.onBoostCb?.();
+      });
+    }
+
     const resetBtn = document.getElementById('btn-city-reset');
     if (resetBtn) {
       resetBtn.addEventListener('click', () => {
@@ -231,7 +347,7 @@ export class UIManager {
       });
     }
 
-    // Studio Tools
+    // Studio Tools (Tactile & Destruction)
     const toolBtns = this.container.querySelectorAll('.tool-btn');
     toolBtns.forEach((btn) => {
       btn.addEventListener('click', async (e) => {
@@ -241,10 +357,42 @@ export class UIManager {
           this.studio.setTool(tool);
           toolBtns.forEach((b) => b.classList.remove('active'));
           (e.currentTarget as HTMLElement).classList.add('active');
+        }
+      });
+    });
 
-          if (tool === 'pop') {
-            this.studio.triggerPop();
-          }
+    // DIY Fillings selection
+    const fillingCards = this.container.querySelectorAll('.filling-card');
+    fillingCards.forEach((card) => {
+      card.addEventListener('click', async (e) => {
+        await this.audio.unlock();
+        const f = (e.currentTarget as HTMLElement).getAttribute('data-filling') as FillingType;
+        if (f) {
+          this.studio.wafuMaker.toggleFilling(f);
+          this.studio.refreshFillings();
+
+          // Play preview ASMR
+          if (f === 'orbeez') this.audio.playWaterBeads();
+          else if (f === 'floam') this.audio.playFloamCrunch();
+          else if (f === 'slime') this.audio.playSquish(0.9);
+          else this.audio.playCrunch(0.8);
+
+          this.render();
+        }
+      });
+    });
+
+    // DIY Shells selection
+    const shellCards = this.container.querySelectorAll('.shell-card');
+    shellCards.forEach((card) => {
+      card.addEventListener('click', async (e) => {
+        await this.audio.unlock();
+        const s = (e.currentTarget as HTMLElement).getAttribute('data-shell') as ShellType;
+        if (s) {
+          this.studio.wafuMaker.setShell(s);
+          if (s === 'clay') this.audio.playClayCrack();
+          else this.audio.playSquish(0.7);
+          this.render();
         }
       });
     });

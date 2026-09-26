@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { WafuMaker, FillingType, ShellType } from '../src/studio/WafuMaker';
+import { WafuMaker } from '../src/studio/WafuMaker';
 
 describe('WafuMaker DIY ASMR System', () => {
   let maker: WafuMaker;

@@ -24,9 +24,7 @@ export class RollingBall {
   private absorbedItems: AbsorbableItem[] = [];
 
   // Physics constants - high speed and responsive handling
-  private baseMaxSpeed: number = 38.0;
   private maxSpeed: number = 38.0;
-  private baseMoveForce: number = 120.0;
   private moveForce: number = 120.0;
   private drag: number = 1.6;
 
