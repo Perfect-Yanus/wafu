@@ -565,6 +565,101 @@ export class AsmrAudioEngine {
     this.playCrack();
     this.playCrunch(1.1);
   }
+
+  /**
+   * 14. PUNCTURE & DEFLATION ASMR (선인장 / 가시 찔림 파열 및 바람 빠지는 소리)
+   * Sharp prick pop + escaping air hiss + deflating squish
+   */
+  public playPuncture(): void {
+    if (!this.ctx || !this.masterGain || this.muted) return;
+    const t = this.ctx.currentTime;
+
+    // 1. Sharp prick pop (needle puncture)
+    const osc = this.ctx.createOscillator();
+    const oscGain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(1400, t);
+    osc.frequency.exponentialRampToValueAtTime(180, t + 0.08);
+
+    oscGain.gain.setValueAtTime(0.5, t);
+    oscGain.gain.exponentialRampToValueAtTime(0.01, t + 0.09);
+
+    osc.connect(oscGain);
+    oscGain.connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.1);
+
+    // 2. High-pressure air hiss puff
+    if (this.whiteNoiseBuffer) {
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = this.whiteNoiseBuffer;
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(2800, t);
+      filter.Q.setValueAtTime(3.0, t);
+
+      const noiseGain = this.ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.4, t);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+
+      noise.connect(filter);
+      filter.connect(noiseGain);
+      noiseGain.connect(this.masterGain);
+
+      noise.start(t);
+      noise.stop(t + 0.3);
+    }
+
+    this.playSquish(0.6);
+  }
+
+  /**
+   * 15. TIME BONUS ASMR (보너스 시계 획득 차임벨)
+   * Bright crystal chime arpeggio
+   */
+  public playTimeBonus(): void {
+    if (!this.ctx || !this.masterGain || this.muted) return;
+    const t = this.ctx.currentTime;
+    const chord = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
+
+    chord.forEach((freq, idx) => {
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t + idx * 0.04);
+
+      gain.gain.setValueAtTime(0.22, t + idx * 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.04 + 0.35);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain!);
+      osc.start(t + idx * 0.04);
+      osc.stop(t + idx * 0.04 + 0.4);
+    });
+  }
+
+  /**
+   * 16. TIME WARNING ASMR (카운트다운 임박 심장박동 경고음)
+   */
+  public playTimeWarning(): void {
+    if (!this.ctx || !this.masterGain || this.muted) return;
+    const t = this.ctx.currentTime;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(160, t);
+    osc.frequency.exponentialRampToValueAtTime(50, t + 0.12);
+
+    gain.gain.setValueAtTime(0.35, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.15);
+  }
 }
 
 // Global Singleton

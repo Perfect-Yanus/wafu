@@ -84,12 +84,41 @@ export class UIManager {
               <span class="badge-icon">⚡</span>
               <span id="hud-speed" class="speed-value">0 km/h</span>
             </div>
+            ${
+              stats.challengeMode
+                ? `
+              <div class="glass-panel hud-badge hud-timer ${stats.timeRemaining <= 20 ? 'timer-warning' : ''}" id="hud-timer-badge">
+                <span class="badge-icon">⏱️</span>
+                <span id="hud-timer">${Math.floor(stats.timeRemaining / 60)}:${Math.floor(stats.timeRemaining % 60).toString().padStart(2, '0')}</span>
+              </div>
+              <div class="glass-panel hud-badge" id="hud-goal-badge">
+                <span class="badge-icon">🎯</span>
+                <span>목표:</span>
+                <span class="highlight">${stats.targetDiameterCm.toFixed(0)}cm</span>
+              </div>
+            `
+                : `
+              <div class="glass-panel hud-badge">
+                <span class="badge-icon">♾️</span>
+                <span>자유 모드</span>
+              </div>
+            `
+            }
           `
               : ''
           }
         </div>
 
         <div class="hud-group-right">
+          ${
+            mode === 'CITY'
+              ? `
+            <button id="btn-toggle-challenge" class="btn-secondary" style="font-size:12px; padding: 6px 12px;" title="모드 전환">
+              ${stats.challengeMode ? '⏱️ 도전 모드' : '♾️ 자유 모드'}
+            </button>
+          `
+              : ''
+          }
           <div class="glass-panel sound-toggle-wrap">
             <button id="btn-sound-mute" class="btn-secondary" title="사운드 음소거/켜기">
               ${this.audio.isMuted() ? '🔇' : '🔊'}
@@ -112,7 +141,12 @@ export class UIManager {
   }
 
   private renderCityOverlay(): string {
+    const stats = this.state.getStats();
+
     return `
+      <!-- Hazard Alert Notification Banner -->
+      <div id="hazard-alert" class="hazard-alert"></div>
+
       <!-- Mobile / Screen Action Buttons -->
       <div class="city-action-buttons">
         <button id="btn-city-jump" class="btn-action btn-jump" title="점프 (Space)">
@@ -125,8 +159,49 @@ export class UIManager {
         </button>
       </div>
 
+      <!-- Challenge Victory / Game Over Modal -->
+      <div id="modal-challenge" class="challenge-modal-backdrop" style="display: ${stats.isVictory || stats.isGameOver ? 'flex' : 'none'};">
+        <div class="glass-panel challenge-modal-content">
+          <div class="modal-icon" id="modal-icon">${stats.isVictory ? '🏆' : '⏳'}</div>
+          <h2 id="modal-title">${stats.isVictory ? '축하합니다! 목표 달성!' : '시간 종료! (Time Over)'}</h2>
+          <div id="modal-body">
+            ${
+              stats.isVictory
+                ? `
+              <p>와뿌볼이 거대해졌습니다! 도시의 물체들을 압도적으로 쓸어 담았습니다.</p>
+              <div class="modal-stats">
+                <div>최종 직경: <strong>${stats.currentDiameterCm.toFixed(1)} cm</strong></div>
+                <div>흡수한 물체: <strong>${stats.absorbedCount} 개</strong></div>
+                <div>남은 시간: <strong>${Math.floor(stats.timeRemaining)} 초</strong></div>
+              </div>
+            `
+                : `
+              <p>도전 시간이 모두 흘렀습니다! 선인장과 톱날을 피하고 보너스 시계를 모아보세요.</p>
+              <div class="modal-stats">
+                <div>도달 직경: <strong>${stats.currentDiameterCm.toFixed(1)} cm</strong> (목표: ${stats.targetDiameterCm} cm)</div>
+                <div>흡수한 물체: <strong>${stats.absorbedCount} 개</strong></div>
+              </div>
+            `
+            }
+          </div>
+          <div class="modal-buttons">
+            ${
+              stats.isVictory
+                ? `
+              <button id="btn-modal-studio" class="btn-primary">🧪 스튜디오에서 가지고 놀기</button>
+              <button id="btn-modal-retry" class="btn-secondary">🔄 다시 도전하기</button>
+            `
+                : `
+              <button id="btn-modal-retry" class="btn-primary">🔄 다시 도전하기</button>
+              <button id="btn-modal-freeroll" class="btn-secondary">♾️ 무제한 자유 모드로 계속하기</button>
+            `
+            }
+          </div>
+        </div>
+      </div>
+
       <footer class="glass-panel city-bottom-bar">
-        <span>🎮 조작: <span class="controls-tag">WASD/방향키</span> 이동 · <span class="controls-tag">Shift</span> 부스트 · <span class="controls-tag">Space</span> 점프 · 가젯: <span style="color:#00e5ff; font-weight:700;">가속패드</span>, <span style="color:#3a86ff; font-weight:700;">트램펄린</span>, <span style="color:#ffd700; font-weight:700;">자석</span>, <span style="color:#a06535; font-weight:700;">파괴울타리</span></span>
+        <span>🎮 조작: <span class="controls-tag">WASD/방향키</span> 이동 · <span class="controls-tag">Shift</span> 부스트 · <span class="controls-tag">Space</span> 점프 · 가젯: <span style="color:#00e5ff; font-weight:700;">가속패드</span>, <span style="color:#3a86ff; font-weight:700;">트램펄린</span>, <span style="color:#ffd700; font-weight:700;">시계(+15초)</span> · 위험: <span style="color:#ff3366; font-weight:700;">선인장/가시/톱날</span></span>
         <button id="btn-city-reset" class="btn-secondary" style="font-size:12px;">🔄 도시 재생성</button>
       </footer>
     `;
@@ -282,6 +357,44 @@ export class UIManager {
     `;
   }
 
+  private hazardAlertTimeout?: number;
+
+  public showHazardAlert(hazardType: string): void {
+    const alertEl = document.getElementById('hazard-alert');
+    if (!alertEl) return;
+    const messages: Record<string, string> = {
+      cactus: '🌵 선인장 바늘에 찔림! 크기 축소 (-16%)',
+      spike: '⚠️ 날카로운 가시 트랩 충돌! 크기 축소 (-22%)',
+      sawblade: '⚡ 회전 톱날 피해! 크기 대폭 축소 (-26%)',
+    };
+    alertEl.textContent = messages[hazardType] || '⚠️ 날카로운 물체에 찔림!';
+    alertEl.classList.add('visible');
+    if (this.hazardAlertTimeout) clearTimeout(this.hazardAlertTimeout);
+    this.hazardAlertTimeout = window.setTimeout(() => {
+      alertEl.classList.remove('visible');
+    }, 1400);
+  }
+
+  private bindTouchAndClick(element: HTMLElement | null, action: () => void): void {
+    if (!element) return;
+    let lastTouch = 0;
+    element.addEventListener(
+      'touchstart',
+      (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        lastTouch = Date.now();
+        action();
+      },
+      { passive: false }
+    );
+    element.addEventListener('click', (e) => {
+      if (Date.now() - lastTouch < 400) return;
+      e.preventDefault();
+      action();
+    });
+  }
+
   private setupListeners(): void {
     this.state.onModeChange(() => {
       this.render();
@@ -292,18 +405,82 @@ export class UIManager {
       const absEl = document.getElementById('hud-absorbed');
       if (diamEl) diamEl.textContent = `${stats.currentDiameterCm.toFixed(1)} cm`;
       if (absEl) absEl.textContent = stats.absorbedCount.toString();
+
+      // Countdown Timer HUD update
+      const timerEl = document.getElementById('hud-timer');
+      const timerBadge = document.getElementById('hud-timer-badge');
+      if (timerEl && stats.challengeMode) {
+        const m = Math.floor(stats.timeRemaining / 60);
+        const s = Math.floor(stats.timeRemaining % 60)
+          .toString()
+          .padStart(2, '0');
+        timerEl.textContent = `${m}:${s}`;
+        if (timerBadge) {
+          if (stats.timeRemaining <= 20) {
+            timerBadge.classList.add('timer-warning');
+          } else {
+            timerBadge.classList.remove('timer-warning');
+          }
+        }
+      }
+
+      // Victory / Game Over Modal check
+      const modal = document.getElementById('modal-challenge');
+      if (modal) {
+        if (stats.isVictory || stats.isGameOver) {
+          modal.style.display = 'flex';
+          const iconEl = document.getElementById('modal-icon');
+          const titleEl = document.getElementById('modal-title');
+          const bodyEl = document.getElementById('modal-body');
+
+          if (stats.isVictory) {
+            if (iconEl) iconEl.textContent = '🏆';
+            if (titleEl) titleEl.textContent = '축하합니다! 목표 달성!';
+            if (bodyEl) {
+              bodyEl.innerHTML = `
+                <p>와뿌볼이 거대해졌습니다! 도시의 물체들을 압도적으로 쓸어 담았습니다.</p>
+                <div class="modal-stats">
+                  <div>최종 직경: <strong>${stats.currentDiameterCm.toFixed(1)} cm</strong></div>
+                  <div>흡수한 물체: <strong>${stats.absorbedCount} 개</strong></div>
+                  <div>남은 시간: <strong>${Math.floor(stats.timeRemaining)} 초</strong></div>
+                </div>
+              `;
+            }
+          } else {
+            if (iconEl) iconEl.textContent = '⏳';
+            if (titleEl) titleEl.textContent = '시간 종료! (Time Over)';
+            if (bodyEl) {
+              bodyEl.innerHTML = `
+                <p>도전 시간이 모두 흘렀습니다! 선인장과 톱날을 피하고 보너스 시계를 모아보세요.</p>
+                <div class="modal-stats">
+                  <div>도달 직경: <strong>${stats.currentDiameterCm.toFixed(1)} cm</strong> (목표: ${stats.targetDiameterCm} cm)</div>
+                  <div>흡수한 물체: <strong>${stats.absorbedCount} 개</strong></div>
+                </div>
+              `;
+            }
+          }
+        } else {
+          modal.style.display = 'none';
+        }
+      }
     });
   }
 
   private bindEvents(): void {
     // Mode toggle button
     const modeBtn = document.getElementById('btn-switch-mode');
-    if (modeBtn) {
-      modeBtn.addEventListener('click', () => {
-        const next = this.state.getMode() === 'CITY' ? 'STUDIO' : 'CITY';
-        this.state.setMode(next);
-      });
-    }
+    this.bindTouchAndClick(modeBtn, () => {
+      const next = this.state.getMode() === 'CITY' ? 'STUDIO' : 'CITY';
+      this.state.setMode(next);
+    });
+
+    // Challenge Mode Toggle (도전 / 자유 모드)
+    const toggleChallengeBtn = document.getElementById('btn-toggle-challenge');
+    this.bindTouchAndClick(toggleChallengeBtn, () => {
+      const stats = this.state.getStats();
+      this.state.setChallengeMode(!stats.challengeMode);
+      this.render();
+    });
 
     // Sound Mute
     const muteBtn = document.getElementById('btn-sound-mute');
@@ -325,27 +502,40 @@ export class UIManager {
       });
     }
 
-    // City Buttons: Jump & Boost & Reset
+    // Multi-touch city action buttons (Jump, Boost, Reset)
     const jumpBtn = document.getElementById('btn-city-jump');
-    if (jumpBtn) {
-      jumpBtn.addEventListener('click', () => {
-        this.onJumpCb?.();
-      });
-    }
+    this.bindTouchAndClick(jumpBtn, () => {
+      this.onJumpCb?.();
+    });
 
     const boostBtn = document.getElementById('btn-city-boost');
-    if (boostBtn) {
-      boostBtn.addEventListener('click', () => {
-        this.onBoostCb?.();
-      });
-    }
+    this.bindTouchAndClick(boostBtn, () => {
+      this.onBoostCb?.();
+    });
 
     const resetBtn = document.getElementById('btn-city-reset');
-    if (resetBtn) {
-      resetBtn.addEventListener('click', () => {
-        this.onCityResetCb?.();
-      });
-    }
+    this.bindTouchAndClick(resetBtn, () => {
+      this.onCityResetCb?.();
+    });
+
+    // Challenge Modal Buttons
+    const modalStudioBtn = document.getElementById('btn-modal-studio');
+    this.bindTouchAndClick(modalStudioBtn, () => {
+      this.state.setMode('STUDIO');
+    });
+
+    const modalRetryBtn = document.getElementById('btn-modal-retry');
+    this.bindTouchAndClick(modalRetryBtn, () => {
+      this.onCityResetCb?.();
+      this.state.resetChallenge(250, 150);
+      this.render();
+    });
+
+    const modalFreerollBtn = document.getElementById('btn-modal-freeroll');
+    this.bindTouchAndClick(modalFreerollBtn, () => {
+      this.state.setChallengeMode(false);
+      this.render();
+    });
 
     // Studio Tools (Tactile & Destruction)
     const toolBtns = this.container.querySelectorAll('.tool-btn');

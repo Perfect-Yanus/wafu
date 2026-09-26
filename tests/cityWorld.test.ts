@@ -42,4 +42,32 @@ describe('ItemCatalog & CityWorld', () => {
     expect(targetItem.isAbsorbed()).toBe(true);
     expect(ball.getAbsorbedCount()).toBe(1);
   });
+
+  it('should initialize hazards and time bonuses and trigger callbacks', () => {
+    expect(cityWorld.hazards.length).toBeGreaterThan(0);
+    expect(cityWorld.timeBonuses.length).toBeGreaterThan(0);
+
+    let shrunkHazard = '';
+    cityWorld.onBallShrunk = (type) => {
+      shrunkHazard = type;
+    };
+
+    let bonusGiven = 0;
+    cityWorld.onTimeBonusCollected = (sec) => {
+      bonusGiven = sec;
+    };
+
+    // Place ball directly on first hazard
+    const firstHazard = cityWorld.hazards[0];
+    const ball = new RollingBall({ initialRadius: 1.0, initialPosition: firstHazard.position.clone() });
+
+    cityWorld.checkCollisions(ball, 0.016);
+    expect(shrunkHazard).toBe(firstHazard.type);
+
+    // Place ball directly on first time bonus
+    const firstBonus = cityWorld.timeBonuses[0];
+    const ball2 = new RollingBall({ initialRadius: 1.0, initialPosition: firstBonus.mesh.position.clone() });
+    cityWorld.checkCollisions(ball2, 0.016);
+    expect(bonusGiven).toBe(15);
+  });
 });

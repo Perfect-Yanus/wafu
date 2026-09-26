@@ -23,17 +23,20 @@ export class RollingBall {
   private totalMass: number;
   private absorbedItems: AbsorbableItem[] = [];
 
-  // Physics constants - high speed and responsive handling
-  private maxSpeed: number = 38.0;
-  private moveForce: number = 120.0;
-  private drag: number = 1.6;
+  // Physics constants - ~10x ultra-high speed and arcade Katamari responsiveness
+  private maxSpeed: number = 180.0;
+  private moveForce: number = 950.0;
+  private drag: number = 1.4;
 
   // Jump & vertical physics
-  private gravity: number = -28.0;
+  private gravity: number = -36.0;
   private grounded: boolean = true;
 
   // Boost mechanic
   private boostTimer: number = 0;
+
+  // Hazard damage & invulnerability blink
+  private invulnerableTimer: number = 0;
 
   // Visual & Material properties
   private ballMaterial: THREE.MeshStandardMaterial;
@@ -111,12 +114,59 @@ export class RollingBall {
     return this.grounded;
   }
 
-  public jump(strength: number = 14.0): boolean {
+  public jump(strength: number = 18.0): boolean {
     if (!this.grounded) return false;
     this.velocity.y = strength;
     this.grounded = false;
     asmrAudio.playSquish(0.8);
     return true;
+  }
+
+  public isInvulnerable(): boolean {
+    return this.invulnerableTimer > 0;
+  }
+
+  public getInvulnerableTimer(): number {
+    return this.invulnerableTimer;
+  }
+
+  /**
+   * Shrink the ball when hitting sharp hazards (cactus, spikes, sawblades).
+   * Reduces ball radius by fraction (min 0.5m), sheds some absorbed items, and gives brief invulnerability.
+   */
+  public shrink(fraction: number = 0.2): { lostItems: AbsorbableItem[]; newRadius: number } {
+    if (this.invulnerableTimer > 0) {
+      return { lostItems: [], newRadius: this.radius };
+    }
+
+    this.invulnerableTimer = 1.2; // 1.2s invulnerability window
+
+    // Play puncture & deflation sound
+    asmrAudio.playPuncture();
+
+    // Calculate new target radius (clamped to min 0.5m)
+    const minRadius = 0.5;
+    this.targetRadius = Math.max(minRadius, this.targetRadius * (1 - fraction));
+
+    // Bounce back velocity slightly
+    this.velocity.x *= -0.5;
+    this.velocity.z *= -0.5;
+    this.velocity.y = 8.0; // little hop
+
+    // Shed 20-30% of absorbed items back into the world
+    const lostItems: AbsorbableItem[] = [];
+    const dropCount = Math.min(this.absorbedItems.length, Math.max(1, Math.ceil(this.absorbedItems.length * 0.25)));
+
+    for (let i = 0; i < dropCount; i++) {
+      const item = this.absorbedItems.pop();
+      if (item) {
+        this.absorbedGroup.remove(item.mesh);
+        this.totalMass = Math.max(5.0, this.totalMass - item.mass);
+        lostItems.push(item);
+      }
+    }
+
+    return { lostItems, newRadius: this.targetRadius };
   }
 
   public getMaterial(): THREE.MeshStandardMaterial {
@@ -195,9 +245,16 @@ export class RollingBall {
    * Update physics step: integration, drag, gravity, rolling rotation, dynamic scaling
    */
   public update(dt: number): void {
-    // 0. Update boost timer
+    // 0. Update boost timer & invulnerability timer
     if (this.boostTimer > 0) {
       this.boostTimer -= dt;
+    }
+    if (this.invulnerableTimer > 0) {
+      this.invulnerableTimer = Math.max(0, this.invulnerableTimer - dt);
+      // Fast blinking effect during damage invulnerability
+      this.visualBall.visible = Math.floor(this.invulnerableTimer * 14) % 2 === 0;
+    } else {
+      this.visualBall.visible = true;
     }
 
     // 1. Smoothly interpolate radius to targetRadius
@@ -280,6 +337,8 @@ export class RollingBall {
     this.totalMass = 5.0;
     this.velocity.set(0, 0, 0);
     this.acceleration.set(0, 0, 0);
+    this.invulnerableTimer = 0;
+    this.visualBall.visible = true;
 
     // Remove all absorbed items from group
     while (this.absorbedGroup.children.length > 0) {

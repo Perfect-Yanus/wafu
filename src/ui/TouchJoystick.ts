@@ -38,23 +38,29 @@ export class TouchJoystick {
   }
 
   private handleTouchStart(e: TouchEvent): void {
-    // Only capture touch if not tapping on an interactive UI button
+    // Only capture touch if not tapping on an interactive UI button or action area
     const target = e.target as HTMLElement;
-    if (target.closest('button, input, select, .no-joystick')) return;
+    if (target.closest('button, input, select, .no-joystick, .city-action-buttons, .btn-action')) return;
 
     if (this.touchId !== null) return; // Already tracking
 
-    const touch = e.changedTouches[0];
-    this.touchId = touch.identifier;
-    this.originX = touch.clientX;
-    this.originY = touch.clientY;
-    this.active = true;
+    // Loop through changed touches to find one on the left/steering side of screen (<= 65% width)
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      if (touch.clientX <= window.innerWidth * 0.65) {
+        this.touchId = touch.identifier;
+        this.originX = touch.clientX;
+        this.originY = touch.clientY;
+        this.active = true;
 
-    this.baseEl.style.display = 'block';
-    this.baseEl.style.left = `${this.originX - this.radius}px`;
-    this.baseEl.style.top = `${this.originY - this.radius}px`;
-    this.stickEl.style.transform = `translate(0px, 0px)`;
-    this.direction.set(0, 0);
+        this.baseEl.style.display = 'block';
+        this.baseEl.style.left = `${this.originX - this.radius}px`;
+        this.baseEl.style.top = `${this.originY - this.radius}px`;
+        this.stickEl.style.transform = `translate(0px, 0px)`;
+        this.direction.set(0, 0);
+        break;
+      }
+    }
   }
 
   private handleTouchMove(e: TouchEvent): void {

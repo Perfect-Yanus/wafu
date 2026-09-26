@@ -3,6 +3,7 @@ import { AbsorbableItem } from '../physics/AbsorbableItem';
 import { ItemCatalog } from './ItemCatalog';
 import { RollingBall } from '../physics/RollingBall';
 import { BoostPad, Trampoline, DestructibleWall, SuperMagnetGadget } from './CityGadgets';
+import { Hazard, CactusHazard, SpikeTrapHazard, SawbladeHazard, TimeBonusItem } from './Hazards';
 
 export interface CityWorldConfig {
   itemCount?: number;
@@ -23,6 +24,14 @@ export class CityWorld {
   public readonly destructibleWalls: DestructibleWall[] = [];
   public readonly superMagnets: SuperMagnetGadget[] = [];
 
+  // Hazards & Bonus Pickups
+  public readonly hazards: Hazard[] = [];
+  public readonly timeBonuses: TimeBonusItem[] = [];
+
+  // Event Callbacks
+  public onTimeBonusCollected?: (bonusSeconds: number) => void;
+  public onBallShrunk?: (hazardType: string) => void;
+
   constructor(scene: THREE.Scene, config: CityWorldConfig = {}) {
     this.scene = scene;
     this.catalog = new ItemCatalog();
@@ -33,6 +42,7 @@ export class CityWorld {
     this.createCityGround();
     this.createLighting();
     this.spawnGadgets();
+    this.spawnHazardsAndBonuses();
     this.populateCity(config.itemCount ?? 260);
   }
 
@@ -217,6 +227,66 @@ export class CityWorld {
     }
   }
 
+  private spawnHazardsAndBonuses(): void {
+    // 1. Cacti (parks and open plaza)
+    const cactusLocations = [
+      new THREE.Vector3(-25, 0, -25),
+      new THREE.Vector3(25, 0, 25),
+      new THREE.Vector3(-45, 0, -35),
+      new THREE.Vector3(35, 0, -35),
+      new THREE.Vector3(-15, 0, 45),
+      new THREE.Vector3(55, 0, 15),
+    ];
+    cactusLocations.forEach((pos, idx) => {
+      const cactus = new CactusHazard(`cactus-${idx}`, pos);
+      this.hazards.push(cactus);
+      this.scene.add(cactus.mesh);
+    });
+
+    // 2. Spike Traps (narrow alleys and intersections)
+    const spikeLocations = [
+      new THREE.Vector3(-15, 0, 0),
+      new THREE.Vector3(15, 0, 0),
+      new THREE.Vector3(0, 0, -35),
+      new THREE.Vector3(30, 0, 45),
+      new THREE.Vector3(-40, 0, 15),
+    ];
+    spikeLocations.forEach((pos, idx) => {
+      const spike = new SpikeTrapHazard(`spike-${idx}`, pos);
+      this.hazards.push(spike);
+      this.scene.add(spike.mesh);
+    });
+
+    // 3. Sawblades (highway ramp entrances and road crossings)
+    const sawLocations = [
+      new THREE.Vector3(40, 4.0, 15),
+      new THREE.Vector3(40, 4.0, -15),
+      new THREE.Vector3(-25, 0, -10),
+      new THREE.Vector3(10, 0, -50),
+    ];
+    sawLocations.forEach((pos, idx) => {
+      const saw = new SawbladeHazard(`saw-${idx}`, pos);
+      this.hazards.push(saw);
+      this.scene.add(saw.mesh);
+    });
+
+    // 4. Time Bonus Pickups (+15s Golden Clocks)
+    const bonusLocations = [
+      new THREE.Vector3(0, 0.5, 30),
+      new THREE.Vector3(0, 0.5, -30),
+      new THREE.Vector3(-35, 0.5, -35),
+      new THREE.Vector3(35, 0.5, 35),
+      new THREE.Vector3(40, 4.6, 0), // center of elevated highway bridge
+      new THREE.Vector3(-50, 0.5, 25),
+      new THREE.Vector3(50, 0.5, -25),
+    ];
+    bonusLocations.forEach((pos, idx) => {
+      const tb = new TimeBonusItem(`bonus-${idx}`, pos);
+      this.timeBonuses.push(tb);
+      this.scene.add(tb.mesh);
+    });
+  }
+
   public populateCity(count: number = 260): void {
     for (const item of this.items) {
       this.scene.remove(item.mesh);
@@ -297,7 +367,24 @@ export class CityWorld {
       mag.update(dt, ball, this.items);
     }
 
-    // 5. Absorbable items collision
+    // 5. Check Hazards (Cactus, Spike Traps, Sawblades)
+    for (const hz of this.hazards) {
+      hz.update(dt);
+      const hit = hz.checkCollision(ball);
+      if (hit) {
+        this.onBallShrunk?.(hz.type);
+      }
+    }
+
+    // 6. Check Time Bonus Pickups (+15s Clocks)
+    for (const tb of this.timeBonuses) {
+      tb.update(dt);
+      if (tb.checkCollection(ball)) {
+        this.onTimeBonusCollected?.(tb.bonusSeconds);
+      }
+    }
+
+    // 7. Absorbable items collision
     for (let i = this.items.length - 1; i >= 0; i--) {
       const item = this.items[i];
       if (item.isAbsorbed()) {
@@ -364,6 +451,18 @@ export class CityWorld {
   }
 
   public reset(itemCount: number = 260): void {
+    // Remove existing hazard and bonus meshes
+    for (const hz of this.hazards) {
+      this.scene.remove(hz.mesh);
+    }
+    this.hazards.length = 0;
+
+    for (const tb of this.timeBonuses) {
+      this.scene.remove(tb.mesh);
+    }
+    this.timeBonuses.length = 0;
+
+    this.spawnHazardsAndBonuses();
     this.populateCity(itemCount);
   }
 }

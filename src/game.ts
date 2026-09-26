@@ -65,6 +65,12 @@ export class Game {
 
     // City environment
     this.cityWorld = new CityWorld(this.scene, { citySize: 120, itemCount: 180 });
+    this.cityWorld.onBallShrunk = (hazardType: string) => {
+      this.uiManager.showHazardAlert(hazardType);
+    };
+    this.cityWorld.onTimeBonusCollected = (bonusSec: number) => {
+      this.state.addBonusTime(bonusSec);
+    };
 
     // Studio environment
     this.studio = new SquishyBallStudio(this.scene, this.rollingBall.getRadius());
@@ -209,6 +215,7 @@ export class Game {
     this.rollingBall.reset(0.6);
     this.rollingBall.setMaterial(this.customizer.getMaterial() as THREE.MeshStandardMaterial);
     this.cityWorld.reset(180);
+    this.state.resetChallenge(250, 150);
     this.state.updateStats({
       currentDiameterCm: this.rollingBall.getRadius() * 200,
       absorbedCount: 0,
@@ -216,6 +223,9 @@ export class Game {
   }
 
   private updateCity(dt: number): void {
+    // 0. Update Challenge countdown timer
+    this.state.tickTimer(dt);
+
     // 1. Gather directional input
     const inputDir = new THREE.Vector2(0, 0);
 
@@ -240,22 +250,30 @@ export class Game {
     this.rollingBall.update(dt);
     this.cityWorld.clampBallToBounds(this.rollingBall);
 
-    // 3. Collision & Katamari absorption & Gadgets
+    // 3. Collision & Katamari absorption & Gadgets & Hazards
     this.cityWorld.checkCollisions(this.rollingBall, dt);
 
     // 4. Update HUD stats & speedometer
+    const currentSpeed = this.rollingBall.getVelocity().length();
     const diameterCm = this.rollingBall.getRadius() * 200;
     this.state.updateStats({
       currentDiameterCm: diameterCm,
       absorbedCount: this.rollingBall.getAbsorbedCount(),
     });
-    this.uiManager.updateSpeed(this.rollingBall.getVelocity().length(), this.rollingBall.isBoosting());
+    this.uiManager.updateSpeed(currentSpeed, this.rollingBall.isBoosting());
 
-    // 5. Third-person follow camera
+    // 5. Dynamic Camera FOV based on speed for extreme velocity sensation
+    const baseFov = 50;
+    const targetFov = baseFov + Math.min(18, (currentSpeed / 85.0) * 18);
+    this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFov, Math.min(1.0, dt * 5.0));
+    this.camera.updateProjectionMatrix();
+
+    // 6. Third-person follow camera
     const ballPos = this.rollingBall.getPosition();
     const r = this.rollingBall.getRadius();
-    const camDist = 4.2 + r * 3.8;
-    const camHeight = 2.4 + r * 2.2;
+    const speedRatio = Math.min(1.0, currentSpeed / 120.0);
+    const camDist = 4.2 + r * 3.8 + speedRatio * 2.8;
+    const camHeight = 2.4 + r * 2.2 + speedRatio * 1.2;
 
     const targetCamPos = new THREE.Vector3(ballPos.x, ballPos.y + camHeight, ballPos.z + camDist);
     this.camera.position.lerp(targetCamPos, Math.min(1.0, dt * 6.0));

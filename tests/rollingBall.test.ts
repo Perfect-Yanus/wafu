@@ -81,6 +81,33 @@ describe('RollingBall & Katamari Absorption', () => {
   it('should activate boost and increase speed cap', () => {
     ball.triggerBoost(1.5);
     expect(ball.isBoosting()).toBe(true);
-    expect(ball.getMaxSpeed()).toBeGreaterThan(50);
+    expect(ball.getMaxSpeed()).toBeGreaterThan(150);
+  });
+
+  it('should shrink ball radius and shed items on hazard hit', () => {
+    // Absorb an item first
+    const item = new AbsorbableItem({
+      id: 'coin-1',
+      name: 'Gold Coin',
+      tier: 1,
+      radius: 0.15,
+      mass: 0.2,
+      mesh: new THREE.Mesh(),
+    });
+    ball.tryAbsorb(item);
+    expect(ball.getAbsorbedCount()).toBe(1);
+
+    const prevTargetR = ball.getTargetRadius();
+    const result = ball.shrink(0.2);
+
+    expect(result.newRadius).toBeLessThan(prevTargetR);
+    expect(result.lostItems.length).toBe(1);
+    expect(ball.getAbsorbedCount()).toBe(0);
+    expect(ball.isInvulnerable()).toBe(true);
+    expect(ball.getInvulnerableTimer()).toBeGreaterThan(0);
+
+    // Consecutive hit during invulnerability should not shrink again
+    const secondHit = ball.shrink(0.2);
+    expect(secondHit.lostItems.length).toBe(0);
   });
 });
