@@ -355,18 +355,24 @@ export class Game {
       inputDir.y += joyDir.y;
     }
 
-    if (inputDir.lengthSq() > 0.0001) {
-      inputDir.normalize();
+    // Calculate analog input magnitude (0.0 to 1.0)
+    const inputLen = inputDir.length();
+    const throttle = Math.min(1.0, inputLen);
 
+    if (throttle > 0.01) {
       // Camera-relative steering:
       // Rotate input vector by camera azimuth so pushing UP always rolls forward in the camera view
       const sin = Math.sin(this.cameraAzimuth);
       const cos = Math.cos(this.cameraAzimuth);
+      const normX = inputDir.x / inputLen;
+      const normY = inputDir.y / inputLen;
       const worldDir = new THREE.Vector2(
-        inputDir.x * cos + inputDir.y * sin,
-        -inputDir.x * sin + inputDir.y * cos
+        (normX * cos + normY * sin) * throttle,
+        (-normX * sin + normY * cos) * throttle
       );
       this.rollingBall.applyInput(worldDir, dt);
+    } else {
+      this.rollingBall.applyInput(new THREE.Vector2(0, 0), dt);
     }
 
     // 2. Update ball physics
@@ -388,17 +394,17 @@ export class Game {
     // 5. Update Challenge countdown timer & victory checks with freshly updated diameter
     this.state.tickTimer(dt, this.cityWorld.currentStage.hasPortalExit);
 
-    // 5. Dynamic Camera FOV based on speed for extreme velocity sensation
+    // 6. Dynamic Camera FOV based on speed for natural rolling sensation
     const baseFov = 50;
-    const targetFov = baseFov + Math.min(18, (currentSpeed / 85.0) * 18);
-    this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFov, Math.min(1.0, dt * 5.0));
+    const targetFov = baseFov + Math.min(8, (currentSpeed / 12.0) * 8);
+    this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFov, Math.min(1.0, dt * 4.0));
     this.camera.updateProjectionMatrix();
 
-    // 6. Third-person follow camera with 360° Azimuth and Elevation orbit
+    // 7. Third-person follow camera with 360° Azimuth and Elevation orbit
     const ballPos = this.rollingBall.getPosition();
     const r = this.rollingBall.getRadius();
-    const speedRatio = Math.min(1.0, currentSpeed / 120.0);
-    const camDist = 4.2 + r * 3.8 + speedRatio * 2.8;
+    const speedRatio = Math.min(1.0, currentSpeed / 14.0);
+    const camDist = 3.6 + r * 3.4 + speedRatio * 1.6;
 
     const horizDist = camDist * Math.cos(this.cameraElevation);
     const camHeight = camDist * Math.sin(this.cameraElevation) + r * 0.45;
@@ -408,7 +414,7 @@ export class Game {
       ballPos.y + camHeight,
       ballPos.z + Math.cos(this.cameraAzimuth) * horizDist
     );
-    this.camera.position.lerp(targetCamPos, Math.min(1.0, dt * 7.5));
+    this.camera.position.lerp(targetCamPos, Math.min(1.0, dt * 6.5));
     this.camera.lookAt(ballPos.x, ballPos.y + r * 0.4, ballPos.z);
   }
 

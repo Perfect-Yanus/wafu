@@ -162,7 +162,7 @@ export class AsmrAudioEngine {
     if (!this.ctx || !this.rollGain || !this.rollFilter) return;
 
     const t = this.ctx.currentTime;
-    const normalizedSpeed = Math.min(1.0, speed / 30.0);
+    const normalizedSpeed = Math.min(1.0, speed / 12.0);
 
     if (normalizedSpeed < 0.03) {
       this.rollGain.gain.linearRampToValueAtTime(0, t + 0.1);

@@ -54,10 +54,10 @@ export class BoostPad {
       this.cooldown = 0.8;
       ball.triggerBoost(2.5);
 
-      // Launch forward with high speed
+      // Launch forward with punchy boost speed
       const vel = ball.getVelocity();
-      vel.x = this.forward.x * 50.0;
-      vel.z = this.forward.z * 50.0;
+      vel.x = this.forward.x * 18.0;
+      vel.z = this.forward.z * 18.0;
 
       asmrAudio.playPop();
       return true;
@@ -112,7 +112,7 @@ export class Trampoline {
 
     if (dist < this.radius + ball.getRadius() * 0.5) {
       this.cooldown = 0.5;
-      ball.jump(24.0); // Mega launch!
+      ball.jump(14.5); // Arcade trampoline launch!
       asmrAudio.playSquish(1.0);
       return true;
     }

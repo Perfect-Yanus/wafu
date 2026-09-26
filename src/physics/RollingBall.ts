@@ -23,16 +23,20 @@ export class RollingBall {
   private totalMass: number;
   private absorbedItems: AbsorbableItem[] = [];
 
-  // Physics constants - balanced, comfortable Katamari rolling feel
-  private maxSpeed: number = 34.0;
-  private moveForce: number = 68.0;
-  private drag: number = 2.0;
+  // Physics constants - balanced, comfortable Katamari rolling feel (1/3 scale)
+  private maxSpeed: number = 11.5;
+  private accelRate: number = 24.0;
+  private decelRate: number = 15.0;
+  private brakeRate: number = 36.0;
 
   // Jump & vertical physics
-  private gravity: number = -34.0;
+  private gravity: number = -22.0;
   private grounded: boolean = true;
   private coyoteTimer: number = 0;
   private jumpBufferTimer: number = 0;
+
+  // Stored analog input vector (direction + throttle magnitude)
+  private inputVector: THREE.Vector2 = new THREE.Vector2(0, 0);
 
   // Boost mechanic
   private boostTimer: number = 0;
@@ -102,9 +106,9 @@ export class RollingBall {
   }
 
   public getMaxSpeed(): number {
-    const scaleFactor = 1 + Math.log10(this.radius / 0.15 + 1) * 0.35;
+    const scaleFactor = 1 + Math.log10(this.radius / 0.125 + 1) * 0.30;
     const base = this.maxSpeed * scaleFactor;
-    return this.isBoosting() ? base * 1.5 : base;
+    return this.isBoosting() ? base * 1.45 : base;
   }
 
   public triggerBoost(duration: number = 2.0): void {
@@ -116,7 +120,7 @@ export class RollingBall {
     return this.grounded;
   }
 
-  public jump(strength: number = 14.5): boolean {
+  public jump(strength: number = 8.8): boolean {
     if (this.grounded || this.coyoteTimer > 0) {
       return this.executeJump(strength);
     } else {
@@ -126,7 +130,7 @@ export class RollingBall {
     }
   }
 
-  private executeJump(strength: number = 14.5): boolean {
+  private executeJump(strength: number = 8.8): boolean {
     this.velocity.y = strength;
     this.grounded = false;
     this.coyoteTimer = 0;
@@ -257,29 +261,10 @@ export class RollingBall {
   }
 
   /**
-   * Apply directional input (normalized 2D vector in camera space)
+   * Apply directional input (normalized or analog 2D vector in camera space)
    */
   public applyInput(inputDir: THREE.Vector2, _dt?: number): void {
-    if (inputDir.lengthSq() > 0.0001) {
-      const massScale = Math.pow(this.totalMass / 5.0, 0.3);
-      let accelForce = this.moveForce * massScale;
-
-      if (this.isBoosting()) {
-        accelForce *= 1.6;
-      }
-
-      // Snappy turn reversal: if steering opposite to current movement, add strong braking boost
-      const horizDot = this.velocity.x * inputDir.x + this.velocity.z * inputDir.y;
-      if (horizDot < -0.5) {
-        accelForce *= 2.2;
-      }
-
-      // Consistent, responsive air steering
-      const airMult = this.grounded ? 1.0 : 1.15;
-
-      this.acceleration.x += inputDir.x * accelForce * airMult;
-      this.acceleration.z += inputDir.y * accelForce * airMult;
-    }
+    this.inputVector.copy(inputDir);
   }
 
   /**
@@ -317,26 +302,65 @@ export class RollingBall {
       }
     }
 
-    // 2. Integrate horizontal velocity & acceleration
-    this.velocity.x += this.acceleration.x * dt;
-    this.velocity.z += this.acceleration.z * dt;
-    this.acceleration.set(0, 0, 0);
+    // 2. Horizontal Acceleration, Deceleration & Analog Steering
+    const throttle = Math.min(1.0, this.inputVector.length());
+    const curMaxSpeed = this.getMaxSpeed();
+    const isGrounded = this.grounded;
 
-    // Apply linear drag to horizontal movement
-    const horizSpeed = Math.hypot(this.velocity.x, this.velocity.z);
-    if (horizSpeed > 0.0001) {
-      const dragFactor = Math.max(0, 1 - (this.grounded ? this.drag : this.drag * 0.35) * dt);
-      this.velocity.x *= dragFactor;
-      this.velocity.z *= dragFactor;
+    if (throttle > 0.04) {
+      const targetSpeed = curMaxSpeed * throttle;
+      const targetDir = this.inputVector.clone().normalize();
+      const targetVelX = targetDir.x * targetSpeed;
+      const targetVelZ = targetDir.y * targetSpeed;
 
-      // Clamp max horizontal speed
-      const curMaxSpeed = this.getMaxSpeed();
-      const newHorizSpeed = Math.hypot(this.velocity.x, this.velocity.z);
-      if (newHorizSpeed > curMaxSpeed) {
-        const ratio = curMaxSpeed / newHorizSpeed;
-        this.velocity.x *= ratio;
-        this.velocity.z *= ratio;
+      const diffX = targetVelX - this.velocity.x;
+      const diffZ = targetVelZ - this.velocity.z;
+      const diffDist = Math.hypot(diffX, diffZ);
+
+      // Check if steering opposite to current movement (snappy braking)
+      const dot = this.velocity.x * targetVelX + this.velocity.z * targetVelZ;
+      let rate = dot < -0.1 ? this.brakeRate : this.accelRate;
+
+      // Heavy balls carry more inertia/momentum
+      const massInertia = Math.pow(5.0 / Math.max(5.0, this.totalMass), 0.15);
+      rate *= massInertia;
+
+      if (!isGrounded) {
+        rate *= 0.55; // Air steering retains forward momentum while allowing adjustments
       }
+
+      const maxStep = rate * dt;
+      if (diffDist <= maxStep) {
+        this.velocity.x = targetVelX;
+        this.velocity.z = targetVelZ;
+      } else {
+        this.velocity.x += (diffX / diffDist) * maxStep;
+        this.velocity.z += (diffZ / diffDist) * maxStep;
+      }
+    } else {
+      // Natural rolling coasting deceleration when no input is pressed
+      const currentHorizSpeed = Math.hypot(this.velocity.x, this.velocity.z);
+      if (currentHorizSpeed > 0.001) {
+        const decelStep = (isGrounded ? this.decelRate : this.decelRate * 0.25) * dt;
+        if (currentHorizSpeed <= decelStep || currentHorizSpeed < 0.08) {
+          this.velocity.x = 0;
+          this.velocity.z = 0;
+        } else {
+          const newSpeed = currentHorizSpeed - decelStep;
+          const scale = newSpeed / currentHorizSpeed;
+          this.velocity.x *= scale;
+          this.velocity.z *= scale;
+        }
+      }
+    }
+
+    // Clamp absolute top speed (for boost pads, collisions, etc.)
+    const curHorizSpeed = Math.hypot(this.velocity.x, this.velocity.z);
+    const absCap = curMaxSpeed * 1.5;
+    if (curHorizSpeed > absCap) {
+      const scale = absCap / curHorizSpeed;
+      this.velocity.x *= scale;
+      this.velocity.z *= scale;
     }
 
     // 3. Vertical Physics (Gravity & Jumping) with bumpy Katamari surface physics
@@ -380,9 +404,10 @@ export class RollingBall {
     this.group.position.copy(this.position);
 
     // 4. Calculate realistic rolling rotation: axis = (UP x horizontalVelocity).normalized
-    if (horizSpeed > 0.01) {
+    const finalHorizSpeed = Math.hypot(this.velocity.x, this.velocity.z);
+    if (finalHorizSpeed > 0.01) {
       const rollAxis = new THREE.Vector3(0, 1, 0).cross(new THREE.Vector3(this.velocity.x, 0, this.velocity.z)).normalize();
-      const rollAngle = (horizSpeed * dt) / this.radius;
+      const rollAngle = (finalHorizSpeed * dt) / this.radius;
 
       const rotQuat = new THREE.Quaternion().setFromAxisAngle(rollAxis, rollAngle);
       this.visualBall.quaternion.premultiply(rotQuat);
@@ -390,7 +415,7 @@ export class RollingBall {
     }
 
     // 5. Update procedural rolling rumble ASMR sound
-    asmrAudio.updateRollRumble(this.grounded ? horizSpeed : 0, 'pavement');
+    asmrAudio.updateRollRumble(this.grounded ? finalHorizSpeed : 0, 'pavement');
   }
 
   /**
@@ -403,12 +428,13 @@ export class RollingBall {
   /**
    * Reset ball to initial state
    */
-  public reset(initialRadius: number = 0.6): void {
+  public reset(initialRadius: number = 0.125): void {
     this.radius = initialRadius;
     this.targetRadius = initialRadius;
     this.totalMass = 5.0;
     this.velocity.set(0, 0, 0);
     this.acceleration.set(0, 0, 0);
+    this.inputVector.set(0, 0);
     this.invulnerableTimer = 0;
     this.coyoteTimer = 0;
     this.jumpBufferTimer = 0;

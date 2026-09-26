@@ -16,7 +16,7 @@ describe('CityGadgets System', () => {
 
     boostPad.checkInteraction(ball);
     expect(ball.isBoosting()).toBe(true);
-    expect(ball.getVelocity().z).toBeGreaterThan(20);
+    expect(ball.getVelocity().z).toBeGreaterThan(15);
   });
 
   it('should launch ball into air on Trampoline collision', () => {
@@ -25,7 +25,7 @@ describe('CityGadgets System', () => {
 
     trampoline.checkInteraction(ball);
     expect(ball.isGrounded()).toBe(false);
-    expect(ball.getVelocity().y).toBeGreaterThan(15);
+    expect(ball.getVelocity().y).toBeGreaterThan(12);
   });
 
   it('should shatter DestructibleWall when hit with sufficient speed', () => {
