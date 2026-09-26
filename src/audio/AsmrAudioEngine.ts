@@ -433,6 +433,138 @@ export class AsmrAudioEngine {
     // Also trigger light squish
     this.playSquish(0.4);
   }
+
+  /**
+   * 8. HAMMER SMASH ASMR (망치로 쾅! 깨뜨리기 / 부수기)
+   * Deep sub-impact boom + explosive brittle fracture
+   */
+  public playHammerSmash(): void {
+    if (!this.ctx || !this.masterGain || this.muted) return;
+    const t = this.ctx.currentTime;
+
+    // Sub-bass heavy impact thud
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(140, t);
+    osc.frequency.exponentialRampToValueAtTime(35, t + 0.18);
+
+    gain.gain.setValueAtTime(0.9, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.25);
+
+    // Explosive fracture noise
+    this.playCrack();
+    this.playCrunch(1.2);
+  }
+
+  /**
+   * 9. HYDRAULIC CRUSH ASMR (유압 프레스로 짓누르기)
+   * Pressurized mechanical hum + viscous squelch & fluid hiss
+   */
+  public playHydraulicCrush(): void {
+    if (!this.ctx || !this.masterGain || this.muted) return;
+    const t = this.ctx.currentTime;
+
+    // Low mechanical press drone
+    const drone = this.ctx.createOscillator();
+    const droneGain = this.ctx.createGain();
+    drone.type = 'sawtooth';
+    drone.frequency.setValueAtTime(65, t);
+    drone.frequency.linearRampToValueAtTime(50, t + 0.4);
+
+    droneGain.gain.setValueAtTime(0.01, t);
+    droneGain.gain.linearRampToValueAtTime(0.35, t + 0.05);
+    droneGain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+
+    drone.connect(droneGain);
+    droneGain.connect(this.masterGain);
+    drone.start(t);
+    drone.stop(t + 0.5);
+
+    // Multiple viscous squelches
+    this.playSquish(1.0);
+    setTimeout(() => this.playSquish(0.8), 60);
+    setTimeout(() => this.playSquish(0.9), 130);
+  }
+
+  /**
+   * 10. WIRE SHRED ASMR (와이어 커터로 깍두기 절단)
+   * High harmonic wire vibrations + crisp slicing
+   */
+  public playWireShred(): void {
+    if (!this.ctx || !this.masterGain || this.muted) return;
+    const t = this.ctx.currentTime;
+
+    // Wire pluck harmonics
+    [480, 720, 960].forEach((freq, idx) => {
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t + idx * 0.02);
+
+      gain.gain.setValueAtTime(0.2, t + idx * 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.02 + 0.12);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain!);
+      osc.start(t + idx * 0.02);
+      osc.stop(t + idx * 0.02 + 0.15);
+    });
+
+    this.playSlice();
+  }
+
+  /**
+   * 11. WATER BEADS POP ASMR (워터비즈 / 개구리알 톡톡 쾌감음)
+   * Rapid juicy micro-pops
+   */
+  public playWaterBeads(): void {
+    if (!this.ctx || !this.masterGain || this.muted) return;
+    const t = this.ctx.currentTime;
+    const count = 5;
+
+    for (let i = 0; i < count; i++) {
+      const offset = i * 0.025 + Math.random() * 0.01;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      const startFreq = 800 + Math.random() * 400;
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(startFreq, t + offset);
+      osc.frequency.exponentialRampToValueAtTime(120, t + offset + 0.035);
+
+      gain.gain.setValueAtTime(0.3, t + offset);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + offset + 0.04);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(t + offset);
+      osc.stop(t + offset + 0.05);
+    }
+  }
+
+  /**
+   * 12. FLOAM CRUNCH ASMR (폼폼이 / 스티로폼 알갱이 ASMR)
+   * Sizzling crisp crackle
+   */
+  public playFloamCrunch(): void {
+    this.playCrunch(0.95);
+    this.playSquish(0.4);
+  }
+
+  /**
+   * 13. CLAY CRACK ASMR (바삭 점토 껍질 파열음)
+   * Crisp brittle snap + dry crust crackle
+   */
+  public playClayCrack(): void {
+    this.playCrack();
+    this.playCrunch(1.1);
+  }
 }
 
 // Global Singleton

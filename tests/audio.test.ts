@@ -85,6 +85,12 @@ describe('AsmrAudioEngine', () => {
     expect(() => audioEngine.playPop()).not.toThrow();
     expect(() => audioEngine.playStretch(0.7)).not.toThrow();
     expect(() => audioEngine.playAbsorb(2)).not.toThrow();
+    expect(() => audioEngine.playHammerSmash()).not.toThrow();
+    expect(() => audioEngine.playHydraulicCrush()).not.toThrow();
+    expect(() => audioEngine.playWireShred()).not.toThrow();
+    expect(() => audioEngine.playWaterBeads()).not.toThrow();
+    expect(() => audioEngine.playFloamCrunch()).not.toThrow();
+    expect(() => audioEngine.playClayCrack()).not.toThrow();
   });
 
   it('should update roll rumble dynamically based on speed', () => {
