@@ -62,4 +62,25 @@ describe('RollingBall & Katamari Absorption', () => {
     const newPos = ball.getPosition();
     expect(newPos.distanceTo(initialPos)).toBeGreaterThan(0);
   });
+
+  it('should apply jump velocity and fall back to ground', () => {
+    expect(ball.isGrounded()).toBe(true);
+    const jumped = ball.jump(12.0);
+    expect(jumped).toBe(true);
+    expect(ball.isGrounded()).toBe(false);
+    expect(ball.getVelocity().y).toBeGreaterThan(0);
+
+    // Simulate physics until landing
+    for (let i = 0; i < 120; i++) {
+      ball.update(0.016);
+    }
+    expect(ball.isGrounded()).toBe(true);
+    expect(ball.getPosition().y).toBeCloseTo(ball.getRadius());
+  });
+
+  it('should activate boost and increase speed cap', () => {
+    ball.triggerBoost(1.5);
+    expect(ball.isBoosting()).toBe(true);
+    expect(ball.getMaxSpeed()).toBeGreaterThan(50);
+  });
 });

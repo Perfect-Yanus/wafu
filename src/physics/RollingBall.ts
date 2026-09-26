@@ -23,10 +23,19 @@ export class RollingBall {
   private totalMass: number;
   private absorbedItems: AbsorbableItem[] = [];
 
-  // Physics constants
-  private maxSpeed: number = 18.0;
-  private moveForce: number = 45.0;
-  private drag: number = 2.8;
+  // Physics constants - high speed and responsive handling
+  private baseMaxSpeed: number = 38.0;
+  private maxSpeed: number = 38.0;
+  private baseMoveForce: number = 120.0;
+  private moveForce: number = 120.0;
+  private drag: number = 1.6;
+
+  // Jump & vertical physics
+  private gravity: number = -28.0;
+  private grounded: boolean = true;
+
+  // Boost mechanic
+  private boostTimer: number = 0;
 
   // Visual & Material properties
   private ballMaterial: THREE.MeshStandardMaterial;
@@ -85,6 +94,33 @@ export class RollingBall {
     return this.absorbedItems;
   }
 
+  public isBoosting(): boolean {
+    return this.boostTimer > 0;
+  }
+
+  public getMaxSpeed(): number {
+    const scaleFactor = 1 + Math.log10(this.radius / 0.6 + 1) * 0.5;
+    const base = this.maxSpeed * scaleFactor;
+    return this.isBoosting() ? base * 1.85 : base;
+  }
+
+  public triggerBoost(duration: number = 2.0): void {
+    this.boostTimer = duration;
+    asmrAudio.playPop();
+  }
+
+  public isGrounded(): boolean {
+    return this.grounded;
+  }
+
+  public jump(strength: number = 14.0): boolean {
+    if (!this.grounded) return false;
+    this.velocity.y = strength;
+    this.grounded = false;
+    asmrAudio.playSquish(0.8);
+    return true;
+  }
+
   public getMaterial(): THREE.MeshStandardMaterial {
     return this.ballMaterial;
   }
@@ -139,9 +175,18 @@ export class RollingBall {
    */
   public applyInput(inputDir: THREE.Vector2, dt: number): void {
     if (inputDir.lengthSq() > 0.0001) {
-      // Dynamic force scales slightly with mass so player doesn't feel bogged down
-      const massScale = Math.pow(this.totalMass / 5.0, 0.4);
-      const accelForce = this.moveForce * massScale;
+      const massScale = Math.pow(this.totalMass / 5.0, 0.3);
+      let accelForce = this.moveForce * massScale;
+
+      if (this.isBoosting()) {
+        accelForce *= 2.2;
+      }
+
+      // Snappy turn reversal: if steering opposite to current movement, add braking boost
+      const horizDot = this.velocity.x * inputDir.x + this.velocity.z * inputDir.y;
+      if (horizDot < -1.0) {
+        accelForce *= 1.8;
+      }
 
       this.acceleration.x += inputDir.x * accelForce * dt;
       this.acceleration.z += inputDir.y * accelForce * dt;
@@ -149,12 +194,17 @@ export class RollingBall {
   }
 
   /**
-   * Update physics step: integration, drag, rolling rotation, dynamic scaling
+   * Update physics step: integration, drag, gravity, rolling rotation, dynamic scaling
    */
   public update(dt: number): void {
+    // 0. Update boost timer
+    if (this.boostTimer > 0) {
+      this.boostTimer -= dt;
+    }
+
     // 1. Smoothly interpolate radius to targetRadius
     if (Math.abs(this.targetRadius - this.radius) > 0.001) {
-      const growthLerp = Math.min(1.0, dt * 5.0);
+      const growthLerp = Math.min(1.0, dt * 6.0);
       this.radius += (this.targetRadius - this.radius) * growthLerp;
 
       // Rescale core visual sphere
@@ -162,44 +212,58 @@ export class RollingBall {
       this.visualBall.scale.set(scaleFactor, scaleFactor, scaleFactor);
     }
 
-    // 2. Integrate velocity & acceleration
-    this.velocity.addScaledVector(this.acceleration, dt);
+    // 2. Integrate horizontal velocity & acceleration
+    this.velocity.x += this.acceleration.x * dt;
+    this.velocity.z += this.acceleration.z * dt;
     this.acceleration.set(0, 0, 0);
 
-    // Apply linear drag
-    const speed = this.velocity.length();
-    if (speed > 0.0001) {
-      const dragFactor = Math.max(0, 1 - this.drag * dt);
-      this.velocity.multiplyScalar(dragFactor);
+    // Apply linear drag to horizontal movement
+    const horizSpeed = Math.hypot(this.velocity.x, this.velocity.z);
+    if (horizSpeed > 0.0001) {
+      const dragFactor = Math.max(0, 1 - (this.grounded ? this.drag : this.drag * 0.4) * dt);
+      this.velocity.x *= dragFactor;
+      this.velocity.z *= dragFactor;
 
-      // Clamp max speed (scales slightly as ball grows larger)
-      const currentMaxSpeed = this.maxSpeed * (1 + Math.log10(this.radius / 0.6 + 1) * 0.5);
-      if (this.velocity.length() > currentMaxSpeed) {
-        this.velocity.setLength(currentMaxSpeed);
+      // Clamp max horizontal speed
+      const curMaxSpeed = this.getMaxSpeed();
+      const newHorizSpeed = Math.hypot(this.velocity.x, this.velocity.z);
+      if (newHorizSpeed > curMaxSpeed) {
+        const ratio = curMaxSpeed / newHorizSpeed;
+        this.velocity.x *= ratio;
+        this.velocity.z *= ratio;
       }
     }
 
-    // 3. Update position
+    // 3. Vertical Physics (Gravity & Jumping)
+    this.velocity.y += this.gravity * dt;
     this.position.addScaledVector(this.velocity, dt);
 
-    // Keep ball grounded on floor (Y = radius)
-    this.position.y = this.radius;
+    // Ground collision check
+    if (this.position.y <= this.radius) {
+      this.position.y = this.radius;
+      if (!this.grounded && this.velocity.y < -3.0) {
+        asmrAudio.playSquish(0.5); // Landing squish!
+      }
+      this.grounded = true;
+      this.velocity.y = 0;
+    } else {
+      this.grounded = false;
+    }
+
     this.group.position.copy(this.position);
 
-    // 4. Calculate realistic rolling rotation: axis = (UP x velocity).normalized
-    const currentSpeed = this.velocity.length();
-    if (currentSpeed > 0.01) {
-      const rollAxis = new THREE.Vector3(0, 1, 0).cross(this.velocity).normalize();
-      const rollAngle = (currentSpeed * dt) / this.radius;
+    // 4. Calculate realistic rolling rotation: axis = (UP x horizontalVelocity).normalized
+    if (horizSpeed > 0.01) {
+      const rollAxis = new THREE.Vector3(0, 1, 0).cross(new THREE.Vector3(this.velocity.x, 0, this.velocity.z)).normalize();
+      const rollAngle = (horizSpeed * dt) / this.radius;
 
-      // Rotate group around ball center
       const rotQuat = new THREE.Quaternion().setFromAxisAngle(rollAxis, rollAngle);
       this.visualBall.quaternion.premultiply(rotQuat);
       this.absorbedGroup.quaternion.premultiply(rotQuat);
     }
 
     // 5. Update procedural rolling rumble ASMR sound
-    asmrAudio.updateRollRumble(currentSpeed, 'pavement');
+    asmrAudio.updateRollRumble(this.grounded ? horizSpeed : 0, 'pavement');
   }
 
   /**
