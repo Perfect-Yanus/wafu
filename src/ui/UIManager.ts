@@ -273,7 +273,7 @@ export class UIManager {
             `
             }
           </div>
-          <div class="modal-buttons">
+          <div class="modal-buttons" id="modal-buttons-container">
             ${
               stats.isVictory
                 ? `
@@ -540,6 +540,8 @@ export class UIManager {
           const titleEl = document.getElementById('modal-title');
           const bodyEl = document.getElementById('modal-body');
 
+          const btnWrap = document.getElementById('modal-buttons-container');
+
           if (stats.isVictory) {
             if (iconEl) iconEl.textContent = '🎉';
             if (titleEl) titleEl.textContent = '축하합니다! 스테이지 클리어!';
@@ -549,11 +551,25 @@ export class UIManager {
                 <p style="color:#e2e8f0;">와뿌볼이 거대해졌습니다! 도시의 빌딩과 캐릭터들을 완벽히 흡수했습니다.<br><strong style="color:var(--accent-pink);">이제 스튜디오에서 와뿌볼을 다양한 도구로 시원하게 박살내며 놀아보세요!</strong></p>
                 <div class="modal-stats">
                   <div>도달 스테이지: <strong>${currentStage.title}</strong></div>
-                  <div>최종 직경: <strong>${stats.currentDiameterCm.toFixed(1)} cm</strong></div>
+                  <div>최종 직경: <strong>${stats.currentDiameterCm.toFixed(1)} cm</strong> (목표: ${stats.targetDiameterCm} cm)</div>
                   <div>흡수한 물체: <strong>${stats.absorbedCount} 개</strong></div>
                   <div>남은 시간: <strong>${Math.floor(stats.timeRemaining)} 초</strong></div>
                 </div>
               `;
+            }
+            if (btnWrap) {
+              btnWrap.innerHTML = `
+                <button id="btn-modal-studio" class="btn-primary btn-smash-highlight" style="font-size:16px; padding:14px; width:100%;">
+                  💥 와뿌볼 박살내기! (스튜디오 이동)
+                </button>
+                ${
+                  stats.stageIndex < STAGES.length - 1
+                    ? `<button id="btn-modal-next-stage" class="btn-secondary" style="font-weight:700; width:100%;">➡️ 다음 스테이지 도전 (${STAGES[stats.stageIndex + 1].title.split(':')[0]})</button>`
+                    : ''
+                }
+                <button id="btn-modal-retry" class="btn-secondary" style="width:100%;">🔄 현재 스테이지 다시 하기</button>
+              `;
+              this.bindChallengeModalButtons();
             }
           } else {
             if (iconEl) iconEl.textContent = '⏳';
@@ -566,6 +582,13 @@ export class UIManager {
                   <div>흡수한 물체: <strong>${stats.absorbedCount} 개</strong></div>
                 </div>
               `;
+            }
+            if (btnWrap) {
+              btnWrap.innerHTML = `
+                <button id="btn-modal-retry" class="btn-primary" style="width:100%;">🔄 다시 도전하기</button>
+                <button id="btn-modal-freeroll" class="btn-secondary" style="width:100%;">♾️ 무제한 자유 모드로 계속하기</button>
+              `;
+              this.bindChallengeModalButtons();
             }
           }
         } else {
@@ -668,30 +691,7 @@ export class UIManager {
     });
 
     // Challenge Victory / Game Over Modal Buttons
-    const modalStudioBtn = document.getElementById('btn-modal-studio');
-    this.bindTouchAndClick(modalStudioBtn, () => {
-      this.state.setMode('STUDIO');
-    });
-
-    const nextStageBtn = document.getElementById('btn-modal-next-stage');
-    this.bindTouchAndClick(nextStageBtn, () => {
-      const stats = this.state.getStats();
-      if (stats.stageIndex < STAGES.length - 1) {
-        this.onStageSelectCb?.(stats.stageIndex + 1);
-      }
-    });
-
-    const modalRetryBtn = document.getElementById('btn-modal-retry');
-    this.bindTouchAndClick(modalRetryBtn, () => {
-      const stats = this.state.getStats();
-      this.onStageSelectCb?.(stats.stageIndex);
-    });
-
-    const modalFreerollBtn = document.getElementById('btn-modal-freeroll');
-    this.bindTouchAndClick(modalFreerollBtn, () => {
-      this.state.setChallengeMode(false);
-      this.render();
-    });
+    this.bindChallengeModalButtons();
 
     // Studio Tools (Tactile & Destruction)
     const toolBtns = this.container.querySelectorAll('.tool-btn');
@@ -826,5 +826,40 @@ export class UIManager {
         }
       });
     });
+  }
+
+  private bindChallengeModalButtons(): void {
+    const modalStudioBtn = document.getElementById('btn-modal-studio');
+    if (modalStudioBtn) {
+      this.bindTouchAndClick(modalStudioBtn, () => {
+        this.state.setMode('STUDIO');
+      });
+    }
+
+    const nextStageBtn = document.getElementById('btn-modal-next-stage');
+    if (nextStageBtn) {
+      this.bindTouchAndClick(nextStageBtn, () => {
+        const stats = this.state.getStats();
+        if (stats.stageIndex < STAGES.length - 1) {
+          this.onStageSelectCb?.(stats.stageIndex + 1);
+        }
+      });
+    }
+
+    const modalRetryBtn = document.getElementById('btn-modal-retry');
+    if (modalRetryBtn) {
+      this.bindTouchAndClick(modalRetryBtn, () => {
+        const stats = this.state.getStats();
+        this.onStageSelectCb?.(stats.stageIndex);
+      });
+    }
+
+    const modalFreerollBtn = document.getElementById('btn-modal-freeroll');
+    if (modalFreerollBtn) {
+      this.bindTouchAndClick(modalFreerollBtn, () => {
+        this.state.setChallengeMode(false);
+        this.render();
+      });
+    }
   }
 }

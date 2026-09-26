@@ -56,13 +56,13 @@ export class ItemCatalog {
   }
 
   private registerTemplates(): void {
-    // ---------------- TIER 1: TINY (0.1m ~ 0.35m) ----------------
+    // ---------------- TIER 1: TINY (0.05m ~ 0.12m) ----------------
     this.templates.set('candy', {
       type: 'candy',
       name: '롤리팝 사탕 (Candy)',
       tier: 1,
-      radius: 0.22,
-      mass: 0.15,
+      radius: 0.08,
+      mass: 0.1,
       builder: () => {
         const group = new THREE.Group();
         const mat = new THREE.MeshStandardMaterial({ color: 0xff3366, roughness: 0.2 });
@@ -80,8 +80,8 @@ export class ItemCatalog {
       type: 'strawberry',
       name: '새콤 딸기 (Strawberry)',
       tier: 1,
-      radius: 0.18,
-      mass: 0.1,
+      radius: 0.07,
+      mass: 0.08,
       builder: () => {
         const group = new THREE.Group();
         const berryMat = new THREE.MeshStandardMaterial({ color: 0xee1133, roughness: 0.4 });
@@ -100,8 +100,8 @@ export class ItemCatalog {
       type: 'duck',
       name: '러버덕 (Rubber Duck)',
       tier: 1,
-      radius: 0.28,
-      mass: 0.2,
+      radius: 0.10,
+      mass: 0.12,
       builder: () => {
         const group = new THREE.Group();
         const yellow = new THREE.MeshStandardMaterial({ color: 0xffdd00, roughness: 0.3 });
@@ -126,21 +126,21 @@ export class ItemCatalog {
       type: 'dice',
       name: '황금 주사위 (Lucky Dice)',
       tier: 1,
-      radius: 0.2,
-      mass: 0.25,
+      radius: 0.08,
+      mass: 0.1,
       builder: () => {
         const diceMat = new THREE.MeshStandardMaterial({ color: 0xffaa00, metalness: 0.5, roughness: 0.2 });
         return new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.25, 0.25), diceMat);
       },
     });
 
-    // ---------------- TIER 2: SMALL (0.4m ~ 1.0m) ----------------
+    // ---------------- TIER 2: SMALL (0.14m ~ 0.35m) ----------------
     this.templates.set('cone', {
       type: 'cone',
       name: '안전 콘 (Traffic Cone)',
       tier: 2,
-      radius: 0.45,
-      mass: 0.8,
+      radius: 0.20,
+      mass: 0.4,
       builder: () => {
         const group = new THREE.Group();
         const orange = new THREE.MeshStandardMaterial({ color: 0xff5500, roughness: 0.4 });
@@ -164,8 +164,8 @@ export class ItemCatalog {
       type: 'can',
       name: '음료수 캔 (Soda Can)',
       tier: 2,
-      radius: 0.38,
-      mass: 0.5,
+      radius: 0.14,
+      mass: 0.25,
       builder: () => {
         const mat = new THREE.MeshStandardMaterial({ color: 0x0088ff, metalness: 0.7, roughness: 0.3 });
         const can = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.5, 16), mat);
@@ -178,8 +178,8 @@ export class ItemCatalog {
       type: 'box',
       name: '택배 상자 (Delivery Box)',
       tier: 2,
-      radius: 0.5,
-      mass: 1.2,
+      radius: 0.22,
+      mass: 0.5,
       builder: () => {
         const mat = new THREE.MeshStandardMaterial({ color: 0xc89d6c, roughness: 0.8 });
         const box = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.5, 0.6), mat);
@@ -192,8 +192,8 @@ export class ItemCatalog {
       type: 'cat',
       name: '식빵 굽는 고양이 (Cat)',
       tier: 2,
-      radius: 0.55,
-      mass: 1.5,
+      radius: 0.24,
+      mass: 0.6,
       builder: () => {
         const group = new THREE.Group();
         const white = new THREE.MeshStandardMaterial({ color: 0xf5eedb, roughness: 0.6 });
@@ -208,13 +208,13 @@ export class ItemCatalog {
       },
     });
 
-    // ---------------- TIER 3: MEDIUM (1.2m ~ 2.5m) ----------------
+    // ---------------- TIER 3: MEDIUM (0.35m ~ 0.75m) ----------------
     this.templates.set('bench', {
       type: 'bench',
       name: '공원 벤치 (Park Bench)',
       tier: 3,
-      radius: 1.2,
-      mass: 5.0,
+      radius: 0.45,
+      mass: 3.5,
       builder: () => {
         const group = new THREE.Group();
         const woodMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.7 });
@@ -243,7 +243,7 @@ export class ItemCatalog {
       type: 'bicycle',
       name: '자전거 (Bicycle)',
       tier: 3,
-      radius: 1.1,
+      radius: 0.48,
       mass: 4.0,
       builder: () => {
         const group = new THREE.Group();
@@ -268,8 +268,8 @@ export class ItemCatalog {
       type: 'vending',
       name: '자판기 (Vending Machine)',
       tier: 3,
-      radius: 1.4,
-      mass: 8.0,
+      radius: 0.60,
+      mass: 6.0,
       builder: () => {
         const group = new THREE.Group();
         const bodyMat = new THREE.MeshStandardMaterial({ color: 0xe63946, roughness: 0.3 });
@@ -377,8 +377,8 @@ export class ItemCatalog {
       type: 'donut',
       name: '스트로베리 도넛 (Donut)',
       tier: 1,
-      radius: 0.22,
-      mass: 0.18,
+      radius: 0.09,
+      mass: 0.12,
       builder: () => {
         const mat = new THREE.MeshStandardMaterial({ color: 0xff66aa, roughness: 0.3 });
         return new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.08, 12, 24), mat);
@@ -389,8 +389,8 @@ export class ItemCatalog {
       type: 'bowling',
       name: '볼링 핀 (Bowling Pin)',
       tier: 1,
-      radius: 0.25,
-      mass: 0.22,
+      radius: 0.11,
+      mass: 0.15,
       builder: () => {
         const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 });
         const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.12, 0.45, 12), mat);
@@ -403,8 +403,8 @@ export class ItemCatalog {
       type: 'coin',
       name: '슈퍼 골드 코인 (Gold Coin)',
       tier: 1,
-      radius: 0.2,
-      mass: 0.25,
+      radius: 0.06,
+      mass: 0.08,
       builder: () => {
         const mat = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.8, roughness: 0.2 });
         const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.05, 16), mat);
@@ -418,8 +418,8 @@ export class ItemCatalog {
       type: 'burger',
       name: '빅 치즈버거 (Cheeseburger)',
       tier: 2,
-      radius: 0.45,
-      mass: 0.8,
+      radius: 0.18,
+      mass: 0.35,
       builder: () => {
         const group = new THREE.Group();
         const bunMat = new THREE.MeshStandardMaterial({ color: 0xdf9755, roughness: 0.6 });
@@ -444,8 +444,8 @@ export class ItemCatalog {
       type: 'pizza',
       name: '페퍼로니 피자 (Pizza Slice)',
       tier: 2,
-      radius: 0.48,
-      mass: 0.7,
+      radius: 0.20,
+      mass: 0.4,
       builder: () => {
         const mat = new THREE.MeshStandardMaterial({ color: 0xffb703, roughness: 0.5 });
         const slice = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.6, 3), mat);
@@ -459,8 +459,8 @@ export class ItemCatalog {
       type: 'skateboard',
       name: '스케이트보드 (Skateboard)',
       tier: 2,
-      radius: 0.55,
-      mass: 1.1,
+      radius: 0.24,
+      mass: 0.5,
       builder: () => {
         const group = new THREE.Group();
         const deckMat = new THREE.MeshStandardMaterial({ color: 0x3a86ff, roughness: 0.4 });
@@ -487,8 +487,8 @@ export class ItemCatalog {
       type: 'hydrant',
       name: '빨간 소화전 (Fire Hydrant)',
       tier: 2,
-      radius: 0.5,
-      mass: 1.4,
+      radius: 0.30,
+      mass: 1.0,
       builder: () => {
         const mat = new THREE.MeshStandardMaterial({ color: 0xe63946, roughness: 0.4 });
         const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.25, 0.7, 12), mat);
@@ -502,8 +502,8 @@ export class ItemCatalog {
       type: 'arcade',
       name: '레트로 오락기 (Arcade Cabinet)',
       tier: 3,
-      radius: 1.3,
-      mass: 6.5,
+      radius: 0.55,
+      mass: 5.0,
       builder: () => {
         const group = new THREE.Group();
         const mat = new THREE.MeshStandardMaterial({ color: 0x7209b7, roughness: 0.3 });
@@ -521,8 +521,8 @@ export class ItemCatalog {
       type: 'motorcycle',
       name: '스피드 오토바이 (Motorcycle)',
       tier: 3,
-      radius: 1.4,
-      mass: 7.0,
+      radius: 0.52,
+      mass: 5.5,
       builder: () => {
         const group = new THREE.Group();
         const bodyMat = new THREE.MeshStandardMaterial({ color: 0xff0055, metalness: 0.7 });
@@ -543,8 +543,8 @@ export class ItemCatalog {
       type: 'speaker',
       name: '파티 스피커 (Sound Speaker)',
       tier: 3,
-      radius: 1.1,
-      mass: 4.5,
+      radius: 0.42,
+      mass: 3.2,
       builder: () => {
         const mat = new THREE.MeshStandardMaterial({ color: 0x1d3557, roughness: 0.5 });
         const spk = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.2, 0.6), mat);
@@ -557,8 +557,8 @@ export class ItemCatalog {
       type: 'laptop',
       name: '게이밍 노트북 (Laptop)',
       tier: 3,
-      radius: 1.0,
-      mass: 3.5,
+      radius: 0.35,
+      mass: 2.5,
       builder: () => {
         const group = new THREE.Group();
         const mat = new THREE.MeshStandardMaterial({ color: 0x4a4e69, metalness: 0.6 });

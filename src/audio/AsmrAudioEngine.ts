@@ -764,7 +764,7 @@ export class AsmrAudioEngine {
     this.playPop();
   }
 
-  // ---------------- PROCEDURAL UPBEAT KATAMARI BGM ----------------
+  // ---------------- PROCEDURAL RICH SHIBUYA-KEI / KATAMARI BGM ----------------
   private bgmPlaying: boolean = false;
   private bgmTimer: number | null = null;
   private bgmStep: number = 0;
@@ -776,90 +776,237 @@ export class AsmrAudioEngine {
 
     if (!this.bgmGainNode) {
       this.bgmGainNode = this.ctx.createGain();
-      this.bgmGainNode.gain.setValueAtTime(0.18, this.ctx.currentTime);
+      this.bgmGainNode.gain.setValueAtTime(0.24, this.ctx.currentTime);
       this.bgmGainNode.connect(this.masterGain ?? this.ctx.destination);
     }
 
-    const stepIntervalMs = 120; // ~125 BPM 16th notes
+    const stepIntervalMs = 118; // ~127 BPM 16th notes
     let nextNoteTime = this.ctx.currentTime + 0.05;
 
-    // 4-Bar Chord Progression: F -> Dm -> Gm -> C7
-    const bassline = [
-      174.61, 0, 174.61, 220.0, 261.63, 0, 220.0, 174.61, // Bar 1: F
-      146.83, 0, 146.83, 174.61, 220.0, 0, 174.61, 146.83, // Bar 2: Dm
-      196.0, 0, 196.0, 233.08, 293.66, 0, 233.08, 196.0,  // Bar 3: Gm
-      130.81, 0, 164.81, 196.0, 233.08, 0, 196.0, 164.81, // Bar 4: C7
+    // 16-Bar (128 steps) Chords Voicings (root, 3rd, 5th, 7th)
+    // Section A (Bars 1-8): Fmaj7 -> Dm7 -> Gm7 -> C7 (repeated twice)
+    // Section B (Bars 9-16): Bbmaj7 -> Am7 -> Dm7 -> Gm7 -> C9sus4 -> C7 -> F
+    const chordVoices: Record<number, number[]> = {
+      // Bar 1-2: Fmaj7 (F3, A3, C4, E4)
+      0: [174.61, 220.0, 261.63, 329.63],
+      // Bar 3-4: Dm7 (D3, F3, A3, C4)
+      16: [146.83, 174.61, 220.0, 261.63],
+      // Bar 5-6: Gm7 (G3, Bb3, D4, F4)
+      32: [196.0, 233.08, 293.66, 349.23],
+      // Bar 7-8: C7 (C3, E3, Bb3, D4)
+      48: [130.81, 164.81, 233.08, 293.66],
+      // Bar 9-10: Bbmaj7 (Bb3, D4, F4, A4)
+      64: [233.08, 293.66, 349.23, 440.0],
+      // Bar 11-12: Am7 (A3, C4, E4, G4)
+      80: [220.0, 261.63, 329.63, 392.0],
+      // Bar 13-14: Dm7 (D3, F3, A3, C4)
+      96: [146.83, 174.61, 220.0, 261.63],
+      // Bar 15-16: C9sus4 -> C7
+      112: [130.81, 174.61, 233.08, 293.66],
+    };
+
+    // 16-Bar (128 steps) Walking Funk Bassline
+    const bassline: number[] = [
+      // Bars 1-2: Fmaj7
+      174.61, 0, 174.61, 220.0, 261.63, 0, 220.0, 174.61, 349.23, 0, 261.63, 0, 220.0, 196.0, 174.61, 164.81,
+      // Bars 3-4: Dm7
+      146.83, 0, 146.83, 174.61, 220.0, 0, 174.61, 146.83, 293.66, 0, 220.0, 0, 174.61, 164.81, 146.83, 130.81,
+      // Bars 5-6: Gm7
+      196.0, 0, 196.0, 233.08, 293.66, 0, 233.08, 196.0, 392.0, 0, 293.66, 0, 233.08, 220.0, 196.0, 174.61,
+      // Bars 7-8: C7
+      130.81, 0, 164.81, 196.0, 233.08, 0, 196.0, 164.81, 261.63, 0, 233.08, 0, 196.0, 164.81, 146.83, 138.59,
+      // Bars 9-10: Bbmaj7 (Chorus)
+      233.08, 0, 233.08, 293.66, 349.23, 0, 293.66, 233.08, 466.16, 0, 349.23, 0, 293.66, 261.63, 233.08, 220.0,
+      // Bars 11-12: Am7
+      220.0, 0, 220.0, 261.63, 329.63, 0, 261.63, 220.0, 440.0, 0, 329.63, 0, 261.63, 246.94, 220.0, 196.0,
+      // Bars 13-14: Dm7
+      146.83, 0, 146.83, 174.61, 220.0, 0, 174.61, 146.83, 293.66, 0, 220.0, 0, 174.61, 164.81, 146.83, 130.81,
+      // Bars 15-16: C7 Turnaround
+      130.81, 0, 164.81, 196.0, 261.63, 0, 233.08, 0, 196.0, 0, 164.81, 0, 130.81, 146.83, 164.81, 174.61,
     ];
 
-    const melodyNotes = [
-      523.25, 659.25, 783.99, 0, 659.25, 783.99, 1046.5, 0,
-      880.0, 0, 783.99, 659.25, 587.33, 0, 523.25, 0,
-      587.33, 698.46, 880.0, 0, 698.46, 880.0, 1174.66, 0,
-      1046.5, 0, 880.0, 783.99, 659.25, 587.33, 523.25, 0,
+    // 16-Bar (128 steps) Catchy Shibuya-kei Melody
+    const melody: number[] = [
+      // Bars 1-2
+      523.25, 0, 659.25, 0, 783.99, 0, 880.0, 0, 1046.5, 0, 880.0, 783.99, 659.25, 0, 523.25, 0,
+      // Bars 3-4
+      587.33, 0, 698.46, 0, 880.0, 0, 987.77, 0, 880.0, 0, 783.99, 698.46, 587.33, 0, 523.25, 0,
+      // Bars 5-6
+      698.46, 0, 783.99, 0, 880.0, 0, 1046.5, 0, 1174.66, 0, 1046.5, 880.0, 783.99, 0, 698.46, 0,
+      // Bars 7-8
+      783.99, 0, 880.0, 0, 987.77, 0, 1174.66, 0, 1046.5, 987.77, 880.0, 783.99, 659.25, 587.33, 523.25, 0,
+      // Bars 9-10 (Chorus: Uplifting & Bright)
+      880.0, 0, 987.77, 0, 1046.5, 0, 1174.66, 0, 1318.51, 0, 1174.66, 1046.5, 987.77, 0, 880.0, 0,
+      // Bars 11-12
+      783.99, 0, 880.0, 0, 1046.5, 0, 1174.66, 0, 1046.5, 0, 880.0, 783.99, 659.25, 0, 587.33, 0,
+      // Bars 13-14
+      698.46, 0, 880.0, 0, 1046.5, 0, 1174.66, 0, 1318.51, 0, 1174.66, 1046.5, 880.0, 0, 783.99, 0,
+      // Bars 15-16
+      1046.5, 0, 987.77, 0, 880.0, 0, 783.99, 0, 659.25, 0, 587.33, 0, 523.25, 0, 0, 0,
     ];
 
     this.bgmTimer = window.setInterval(() => {
       if (!this.bgmPlaying || !this.ctx || !this.bgmGainNode) return;
 
       while (nextNoteTime < this.ctx.currentTime + 0.25) {
-        const step = this.bgmStep % 32;
+        const step = this.bgmStep % 128;
+        const beatInBar = step % 16;
 
-        // 1. Synth Bass Note
+        // 1. PUNCHY KICK DRUM (Beats 1 & 3 + syncopations on steps 10)
+        const isKick = beatInBar === 0 || beatInBar === 8 || beatInBar === 10;
+        if (isKick) {
+          const kickOsc = this.ctx.createOscillator();
+          const kickGain = this.ctx.createGain();
+          kickOsc.type = 'sine';
+          kickOsc.frequency.setValueAtTime(140, nextNoteTime);
+          kickOsc.frequency.exponentialRampToValueAtTime(42, nextNoteTime + 0.08);
+
+          kickGain.gain.setValueAtTime(0.42, nextNoteTime);
+          kickGain.gain.exponentialRampToValueAtTime(0.001, nextNoteTime + 0.1);
+
+          kickOsc.connect(kickGain);
+          kickGain.connect(this.bgmGainNode);
+          kickOsc.start(nextNoteTime);
+          kickOsc.stop(nextNoteTime + 0.12);
+        }
+
+        // 2. CRISP SNARE DRUM / CLAP (Beats 2 & 4: steps 4 & 12)
+        const isSnare = beatInBar === 4 || beatInBar === 12;
+        if (isSnare && this.whiteNoiseBuffer) {
+          // Noise burst
+          const snareNoise = this.ctx.createBufferSource();
+          snareNoise.buffer = this.whiteNoiseBuffer;
+
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = 'bandpass';
+          filter.frequency.setValueAtTime(1600, nextNoteTime);
+          filter.Q.setValueAtTime(1.8, nextNoteTime);
+
+          const snareGain = this.ctx.createGain();
+          snareGain.gain.setValueAtTime(0.28, nextNoteTime);
+          snareGain.gain.exponentialRampToValueAtTime(0.001, nextNoteTime + 0.12);
+
+          snareNoise.connect(filter);
+          filter.connect(snareGain);
+          snareGain.connect(this.bgmGainNode);
+          snareNoise.start(nextNoteTime);
+          snareNoise.stop(nextNoteTime + 0.14);
+
+          // Tone punch
+          const toneOsc = this.ctx.createOscillator();
+          const toneGain = this.ctx.createGain();
+          toneOsc.type = 'triangle';
+          toneOsc.frequency.setValueAtTime(190, nextNoteTime);
+          toneOsc.frequency.exponentialRampToValueAtTime(80, nextNoteTime + 0.06);
+          toneGain.gain.setValueAtTime(0.22, nextNoteTime);
+          toneGain.gain.exponentialRampToValueAtTime(0.001, nextNoteTime + 0.08);
+          toneOsc.connect(toneGain);
+          toneGain.connect(this.bgmGainNode);
+          toneOsc.start(nextNoteTime);
+          toneOsc.stop(nextNoteTime + 0.09);
+        }
+
+        // 3. HI-HAT (16th notes with open hat on offbeats)
+        if (this.whiteNoiseBuffer) {
+          const isOpenHat = beatInBar === 2 || beatInBar === 6 || beatInBar === 14;
+          const hatNoise = this.ctx.createBufferSource();
+          hatNoise.buffer = this.whiteNoiseBuffer;
+
+          const hatFilter = this.ctx.createBiquadFilter();
+          hatFilter.type = 'highpass';
+          hatFilter.frequency.setValueAtTime(isOpenHat ? 4500 : 7000, nextNoteTime);
+
+          const hatGain = this.ctx.createGain();
+          const hatVol = isOpenHat ? 0.12 : 0.055;
+          const hatDur = isOpenHat ? 0.09 : 0.035;
+
+          hatGain.gain.setValueAtTime(hatVol, nextNoteTime);
+          hatGain.gain.exponentialRampToValueAtTime(0.001, nextNoteTime + hatDur);
+
+          hatNoise.connect(hatFilter);
+          hatFilter.connect(hatGain);
+          hatGain.connect(this.bgmGainNode);
+          hatNoise.start(nextNoteTime);
+          hatNoise.stop(nextNoteTime + hatDur + 0.01);
+        }
+
+        // 4. POLYPHONIC RHODES CHORDS (Syncopated comping on steps 0, 6, 12)
+        const isChordStep = beatInBar === 0 || beatInBar === 6 || beatInBar === 12;
+        if (isChordStep) {
+          // Find current chord by looking back to bar boundary (0, 16, 32, 48, 64, 80, 96, 112)
+          const barStart = Math.floor(step / 16) * 16;
+          const chord = chordVoices[barStart] || chordVoices[0];
+
+          chord.forEach((freq) => {
+            const osc = this.ctx!.createOscillator();
+            const gain = this.ctx!.createGain();
+            const filter = this.ctx!.createBiquadFilter();
+
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, nextNoteTime);
+
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(1400, nextNoteTime);
+
+            const duration = beatInBar === 0 ? 0.35 : 0.22;
+            gain.gain.setValueAtTime(0.08, nextNoteTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, nextNoteTime + duration);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.bgmGainNode!);
+
+            osc.start(nextNoteTime);
+            osc.stop(nextNoteTime + duration + 0.02);
+          });
+        }
+
+        // 5. FUNK / WALKING BASS NOTE
         const bassFreq = bassline[step];
         if (bassFreq > 0) {
           const osc = this.ctx.createOscillator();
-          const g = this.ctx.createGain();
-          osc.type = 'triangle';
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
           osc.frequency.setValueAtTime(bassFreq, nextNoteTime);
 
-          g.gain.setValueAtTime(0.35, nextNoteTime);
-          g.gain.exponentialRampToValueAtTime(0.001, nextNoteTime + 0.18);
+          const bassFilter = this.ctx.createBiquadFilter();
+          bassFilter.type = 'lowpass';
+          bassFilter.frequency.setValueAtTime(450, nextNoteTime);
 
-          osc.connect(g);
-          g.connect(this.bgmGainNode);
+          gain.gain.setValueAtTime(0.24, nextNoteTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, nextNoteTime + 0.18);
+
+          osc.connect(bassFilter);
+          bassFilter.connect(gain);
+          gain.connect(this.bgmGainNode);
           osc.start(nextNoteTime);
           osc.stop(nextNoteTime + 0.2);
         }
 
-        // 2. Playful Lead Melody
-        const melFreq = melodyNotes[step];
-        if (melFreq > 0 && step % 2 === 0) {
+        // 6. PLAYFUL SHIBUYA-KEI LEAD SYNTH MELODY
+        const melFreq = melody[step];
+        if (melFreq > 0) {
           const osc = this.ctx.createOscillator();
-          const g = this.ctx.createGain();
+          const gain = this.ctx.createGain();
           osc.type = 'sine';
           osc.frequency.setValueAtTime(melFreq, nextNoteTime);
 
-          g.gain.setValueAtTime(0.2, nextNoteTime);
-          g.gain.exponentialRampToValueAtTime(0.001, nextNoteTime + 0.16);
+          const melFilter = this.ctx.createBiquadFilter();
+          melFilter.type = 'lowpass';
+          melFilter.frequency.setValueAtTime(2600, nextNoteTime);
 
-          osc.connect(g);
-          g.connect(this.bgmGainNode);
+          gain.gain.setValueAtTime(0.18, nextNoteTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, nextNoteTime + 0.16);
+
+          osc.connect(melFilter);
+          melFilter.connect(gain);
+          gain.connect(this.bgmGainNode);
           osc.start(nextNoteTime);
           osc.stop(nextNoteTime + 0.18);
         }
 
-        // 3. Shaker / Hi-hat percussive tick on off-beats
-        if (step % 2 === 1 && this.whiteNoiseBuffer) {
-          const noise = this.ctx.createBufferSource();
-          noise.buffer = this.whiteNoiseBuffer;
-
-          const filter = this.ctx.createBiquadFilter();
-          filter.type = 'highpass';
-          filter.frequency.setValueAtTime(5000, nextNoteTime);
-
-          const ng = this.ctx.createGain();
-          ng.gain.setValueAtTime(0.09, nextNoteTime);
-          ng.gain.exponentialRampToValueAtTime(0.001, nextNoteTime + 0.04);
-
-          noise.connect(filter);
-          filter.connect(ng);
-          ng.connect(this.bgmGainNode);
-          noise.start(nextNoteTime);
-          noise.stop(nextNoteTime + 0.05);
-        }
-
         this.bgmStep++;
-        nextNoteTime += 0.12;
+        nextNoteTime += 0.118;
       }
     }, stepIntervalMs);
   }

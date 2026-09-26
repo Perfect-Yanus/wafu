@@ -22,13 +22,13 @@ export type StatsChangeListener = (stats: GameStats) => void;
 export class GameState {
   private mode: GameMode = 'CITY';
   private stats: GameStats = {
-    currentDiameterCm: 120.0,
+    currentDiameterCm: 25.0,
     absorbedCount: 0,
     score: 0,
-    totalCityItems: 180,
+    totalCityItems: 650,
     currentTier: 1,
     challengeMode: true,
-    timeRemaining: 120.0,
+    timeRemaining: 130.0,
     targetDiameterCm: 120.0,
     isGameOver: false,
     isVictory: false,
@@ -98,14 +98,16 @@ export class GameState {
     this.notifyStats();
   }
 
-  public setStage(stageIndex: number, targetCm: number, timeSec: number): void {
+  public setStage(stageIndex: number, targetCm: number, timeSec: number, initialCm: number = 25.0): void {
     this.stats.stageIndex = stageIndex;
+    this.stats.currentDiameterCm = initialCm;
     this.stats.targetDiameterCm = targetCm;
     this.stats.timeRemaining = timeSec;
     this.stats.stageBriefingActive = true;
     this.stats.isGameOver = false;
     this.stats.isVictory = false;
     this.stats.portalUnlocked = false;
+    this.stats.absorbedCount = 0;
     this.notifyStats();
   }
 

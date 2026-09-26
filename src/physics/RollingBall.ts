@@ -23,13 +23,13 @@ export class RollingBall {
   private totalMass: number;
   private absorbedItems: AbsorbableItem[] = [];
 
-  // Physics constants - ~10x ultra-high speed and arcade Katamari responsiveness
-  private maxSpeed: number = 180.0;
-  private moveForce: number = 135.0;
-  private drag: number = 1.4;
+  // Physics constants - balanced, comfortable Katamari rolling feel
+  private maxSpeed: number = 34.0;
+  private moveForce: number = 68.0;
+  private drag: number = 2.0;
 
   // Jump & vertical physics
-  private gravity: number = -36.0;
+  private gravity: number = -34.0;
   private grounded: boolean = true;
   private coyoteTimer: number = 0;
   private jumpBufferTimer: number = 0;
@@ -44,7 +44,7 @@ export class RollingBall {
   private ballMaterial: THREE.MeshStandardMaterial;
 
   constructor(config: RollingBallConfig = {}) {
-    this.radius = config.initialRadius ?? 0.6;
+    this.radius = config.initialRadius ?? 0.125; // 25cm starting diameter
     this.targetRadius = this.radius;
     this.totalMass = config.baseMass ?? 5.0;
     this.position = config.initialPosition?.clone() ?? new THREE.Vector3(0, this.radius, 0);
@@ -102,9 +102,9 @@ export class RollingBall {
   }
 
   public getMaxSpeed(): number {
-    const scaleFactor = 1 + Math.log10(this.radius / 0.6 + 1) * 0.5;
+    const scaleFactor = 1 + Math.log10(this.radius / 0.15 + 1) * 0.35;
     const base = this.maxSpeed * scaleFactor;
-    return this.isBoosting() ? base * 1.85 : base;
+    return this.isBoosting() ? base * 1.5 : base;
   }
 
   public triggerBoost(duration: number = 2.0): void {
@@ -116,7 +116,7 @@ export class RollingBall {
     return this.grounded;
   }
 
-  public jump(strength: number = 18.0): boolean {
+  public jump(strength: number = 14.5): boolean {
     if (this.grounded || this.coyoteTimer > 0) {
       return this.executeJump(strength);
     } else {
@@ -126,7 +126,7 @@ export class RollingBall {
     }
   }
 
-  private executeJump(strength: number = 18.0): boolean {
+  private executeJump(strength: number = 14.5): boolean {
     this.velocity.y = strength;
     this.grounded = false;
     this.coyoteTimer = 0;
@@ -157,8 +157,8 @@ export class RollingBall {
     // Play puncture & deflation sound
     asmrAudio.playPuncture();
 
-    // Calculate new target radius (clamped to min 0.5m)
-    const minRadius = 0.5;
+    // Calculate new target radius (clamped to min 0.12m)
+    const minRadius = Math.min(this.radius, 0.12);
     this.targetRadius = Math.max(minRadius, this.targetRadius * (1 - fraction));
 
     // Bounce back velocity slightly
@@ -193,12 +193,12 @@ export class RollingBall {
 
   /**
    * Check if an item can be absorbed according to Katamari threshold
-   * The ball must be larger than the item by a safe margin
+   * The ball must be larger than or equal to the item
    */
   public canAbsorb(item: AbsorbableItem): boolean {
     if (item.isAbsorbed()) return false;
-    // Item radius must be smaller than ball radius * 0.82
-    return item.radius <= this.radius * 0.82;
+    // Ball can absorb items slightly smaller or equal to its size
+    return item.radius <= this.radius * 0.95;
   }
 
   /**
@@ -265,17 +265,17 @@ export class RollingBall {
       let accelForce = this.moveForce * massScale;
 
       if (this.isBoosting()) {
+        accelForce *= 1.6;
+      }
+
+      // Snappy turn reversal: if steering opposite to current movement, add strong braking boost
+      const horizDot = this.velocity.x * inputDir.x + this.velocity.z * inputDir.y;
+      if (horizDot < -0.5) {
         accelForce *= 2.2;
       }
 
-      // Snappy turn reversal: if steering opposite to current movement, add braking boost
-      const horizDot = this.velocity.x * inputDir.x + this.velocity.z * inputDir.y;
-      if (horizDot < -1.0) {
-        accelForce *= 1.8;
-      }
-
-      // Agile mid-air steering so player can steer fluidly while jumping!
-      const airMult = this.grounded ? 1.0 : 1.35;
+      // Consistent, responsive air steering
+      const airMult = this.grounded ? 1.0 : 1.15;
 
       this.acceleration.x += inputDir.x * accelForce * airMult;
       this.acceleration.z += inputDir.y * accelForce * airMult;

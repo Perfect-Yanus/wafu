@@ -79,9 +79,10 @@ describe('RollingBall & Katamari Absorption', () => {
   });
 
   it('should activate boost and increase speed cap', () => {
+    const normalSpeed = ball.getMaxSpeed();
     ball.triggerBoost(1.5);
     expect(ball.isBoosting()).toBe(true);
-    expect(ball.getMaxSpeed()).toBeGreaterThan(150);
+    expect(ball.getMaxSpeed()).toBeGreaterThan(normalSpeed);
   });
 
   it('should shrink ball radius and shed items on hazard hit', () => {

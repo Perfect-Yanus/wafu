@@ -5,8 +5,10 @@ export interface StageConfig {
   title: string;
   subtitle: string;
   description: string;
+  initialDiameterCm: number;
   targetDiameterCm: number;
   timeLimitSec: number;
+  itemCount: number;
   hasPortalExit: boolean;
   isPlanetSphere: boolean;
   allowedTiers: number[];
@@ -21,8 +23,10 @@ export const STAGES: StageConfig[] = [
     title: 'Stage 1: 와뿌 마을과 고양이 파크',
     subtitle: '아기자기한 마을과 살아 움직이는 캐릭터 수집',
     description: '공원과 주택가를 굴러다니며 도넛, 장난감, 귀여운 길고양이, 산책하는 강아지, 공원 벤치를 흡수하여 직경 120cm까지 성장시키세요!',
+    initialDiameterCm: 25.0,
     targetDiameterCm: 120.0,
-    timeLimitSec: 120.0,
+    timeLimitSec: 130.0,
+    itemCount: 650,
     hasPortalExit: false,
     isPlanetSphere: false,
     allowedTiers: [1, 2, 3],
@@ -35,8 +39,10 @@ export const STAGES: StageConfig[] = [
     title: 'Stage 2: 네온 시티 & 시간 내 포털 탈출',
     subtitle: '시간 내 출구(빛나는 차원 포털) 찾기 미션',
     description: '미로 같은 네온 시티를 질주하며 자동차, 자전거, 편의점을 흡수해 180cm 이상 성장하고, 시간 내에 도시 끝의 [빛나는 차원 탈출 포털]에 진입하세요!',
+    initialDiameterCm: 50.0,
     targetDiameterCm: 180.0,
-    timeLimitSec: 110.0,
+    timeLimitSec: 130.0,
+    itemCount: 750,
     hasPortalExit: true,
     isPlanetSphere: false,
     allowedTiers: [1, 2, 3, 4],
@@ -48,9 +54,11 @@ export const STAGES: StageConfig[] = [
     id: 3,
     title: 'Stage 3: 슈퍼 플래닛 구체 월드',
     subtitle: '거대 구체 돔 위에서 메가 빌딩 & 대관람차 흡수',
-    description: '우주 속 거대 플래닛 구체 표면 위를 360도 질주하며 고층 아파트, 풍차 타워, 거대 대관람차를 통째로 쓸어 담아 450cm 슈퍼 와뿌볼을 완성하세요!',
-    targetDiameterCm: 450.0,
-    timeLimitSec: 180.0,
+    description: '우주 속 거대 플래닛 구체 표면 위를 360도 질주하며 고층 아파트, 풍차 타워, 거대 대관람차를 통째로 쓸어 담아 380cm 슈퍼 와뿌볼을 완성하세요!',
+    initialDiameterCm: 80.0,
+    targetDiameterCm: 380.0,
+    timeLimitSec: 160.0,
+    itemCount: 850,
     hasPortalExit: false,
     isPlanetSphere: true,
     allowedTiers: [2, 3, 4, 5],

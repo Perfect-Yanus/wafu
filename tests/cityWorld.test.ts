@@ -22,7 +22,7 @@ describe('ItemCatalog & CityWorld', () => {
 
     const item3 = catalog.createItem('bench', 3, new THREE.Vector3(10, 0, 10));
     expect(item3.tier).toBe(3);
-    expect(item3.radius).toBeGreaterThan(0.9);
+    expect(item3.radius).toBeGreaterThan(item1.radius);
   });
 
   it('should populate city with items and ground', () => {

@@ -65,14 +65,14 @@ export class Game {
 
     // Rolling Katamari ball
     this.rollingBall = new RollingBall({
-      initialRadius: 0.6,
+      initialRadius: 0.125,
       color: this.customizer.getState().currentColor,
     });
     this.rollingBall.setMaterial(this.customizer.getMaterial() as THREE.MeshStandardMaterial);
     this.scene.add(this.rollingBall.group);
 
     // City environment
-    this.cityWorld = new CityWorld(this.scene, { citySize: 120, itemCount: 180 });
+    this.cityWorld = new CityWorld(this.scene, { citySize: 120, itemCount: 650 });
     this.cityWorld.onBallShrunk = (hazardType: string) => {
       this.uiManager.showHazardAlert(hazardType);
     };
@@ -317,16 +317,19 @@ export class Game {
   public loadStage(stageIndex: number, openBriefing: boolean = true): void {
     const clampedIndex = Math.max(0, Math.min(STAGES.length - 1, stageIndex));
     const stage = STAGES[clampedIndex];
-    this.rollingBall.reset(0.6);
+    const initialRadius = (stage.initialDiameterCm ?? 25.0) / 200.0;
+    this.rollingBall.reset(initialRadius);
     this.rollingBall.setMaterial(this.customizer.getMaterial() as THREE.MeshStandardMaterial);
-    this.cityWorld.loadStage(stage);
-    this.state.setStage(clampedIndex, stage.targetDiameterCm, stage.timeLimitSec);
+    this.cityWorld.loadStage(stage, stage.itemCount ?? 650);
+    this.state.setStage(clampedIndex, stage.targetDiameterCm, stage.timeLimitSec, stage.initialDiameterCm ?? 25.0);
     if (!openBriefing) {
       this.state.closeBriefing();
     }
     this.state.updateStats({
       currentDiameterCm: this.rollingBall.getRadius() * 200,
       absorbedCount: 0,
+      targetDiameterCm: stage.targetDiameterCm,
+      timeRemaining: stage.timeLimitSec,
     });
     this.cameraAzimuth = 0;
     this.cameraElevation = 0.35;
@@ -337,9 +340,6 @@ export class Game {
   }
 
   private updateCity(dt: number): void {
-    // 0. Update Challenge countdown timer
-    this.state.tickTimer(dt, this.cityWorld.currentStage.hasPortalExit);
-
     // 1. Gather directional input
     const inputDir = new THREE.Vector2(0, 0);
 
@@ -384,6 +384,9 @@ export class Game {
       absorbedCount: this.rollingBall.getAbsorbedCount(),
     });
     this.uiManager.updateSpeed(currentSpeed, this.rollingBall.isBoosting());
+
+    // 5. Update Challenge countdown timer & victory checks with freshly updated diameter
+    this.state.tickTimer(dt, this.cityWorld.currentStage.hasPortalExit);
 
     // 5. Dynamic Camera FOV based on speed for extreme velocity sensation
     const baseFov = 50;

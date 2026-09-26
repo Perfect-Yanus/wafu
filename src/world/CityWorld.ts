@@ -108,14 +108,17 @@ export class CityWorld {
     ground.receiveShadow = true;
     this.groundGroup.add(ground);
 
-    // 2. City blocks & parks
+    // 2. City blocks & parks with Hedge Mazes and Alley Dividers
     const blockSize = 30;
     const roadWidth = 10;
+    const hedgeMat = new THREE.MeshStandardMaterial({ color: 0x2d6a4f, roughness: 0.85 });
+    const barrierMat = new THREE.MeshStandardMaterial({ color: 0xffb703, roughness: 0.5 });
+    const concreteMat = new THREE.MeshStandardMaterial({ color: 0x6c757d, roughness: 0.8 });
 
     for (let x = -this.citySize + blockSize; x < this.citySize - blockSize; x += blockSize + roadWidth) {
       for (let z = -this.citySize + blockSize; z < this.citySize - blockSize; z += blockSize + roadWidth) {
         const isPark = (Math.abs(x + z) % (blockSize * 2)) === 0;
-        const tileColor = isPark ? 0x38b000 : 0x6c757d;
+        const tileColor = isPark ? 0x38b000 : 0x495057;
         const tileMat = new THREE.MeshStandardMaterial({
           color: tileColor,
           roughness: 0.8,
@@ -125,6 +128,36 @@ export class CityWorld {
         tile.position.set(x, 0.1, z);
         tile.receiveShadow = true;
         this.groundGroup.add(tile);
+
+        if (isPark) {
+          // Park Hedge Maze Labyrinth Walls
+          const mazeWalls = [
+            { w: 22, h: 2.2, d: 1.2, ox: 0, oz: -8 },
+            { w: 1.2, h: 2.2, d: 16, ox: -8, oz: 0 },
+            { w: 16, h: 2.2, d: 1.2, ox: 2, oz: 7 },
+            { w: 1.2, h: 2.2, d: 10, ox: 8, oz: -2 },
+          ];
+          for (const mw of mazeWalls) {
+            const hw = new THREE.Mesh(new THREE.BoxGeometry(mw.w, mw.h, mw.d), hedgeMat);
+            hw.position.set(x + mw.ox, mw.h / 2 + 0.2, z + mw.oz);
+            hw.castShadow = true;
+            hw.receiveShadow = true;
+            this.groundGroup.add(hw);
+          }
+        } else {
+          // Urban Alley Barricades & Jersey Barriers
+          const barriers = [
+            { w: 12, h: 1.2, d: 0.6, ox: -5, oz: 5, mat: barrierMat },
+            { w: 0.6, h: 1.2, d: 10, ox: 6, oz: -4, mat: concreteMat },
+          ];
+          for (const b of barriers) {
+            const bm = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), b.mat);
+            bm.position.set(x + b.ox, b.h / 2 + 0.2, z + b.oz);
+            bm.castShadow = true;
+            bm.receiveShadow = true;
+            this.groundGroup.add(bm);
+          }
+        }
       }
     }
 
@@ -182,14 +215,16 @@ export class CityWorld {
   }
 
   private spawnGadgets(): void {
-    // 1. Boost Pads on roads
+    // 1. Boost Pads on roads and maze entrances
     const boostConfigs = [
       { pos: new THREE.Vector3(0, 0, 25), dir: new THREE.Vector3(0, 0, 1) },
       { pos: new THREE.Vector3(0, 0, -25), dir: new THREE.Vector3(0, 0, -1) },
       { pos: new THREE.Vector3(25, 0, 0), dir: new THREE.Vector3(1, 0, 0) },
       { pos: new THREE.Vector3(-25, 0, 0), dir: new THREE.Vector3(-1, 0, 0) },
-      { pos: new THREE.Vector3(40, 4.0, 0), dir: new THREE.Vector3(0, 0, 1) }, // on bridge!
+      { pos: new THREE.Vector3(40, 4.0, 0), dir: new THREE.Vector3(0, 0, 1) }, // on bridge
       { pos: new THREE.Vector3(-50, 0, 40), dir: new THREE.Vector3(1, 0, 0) },
+      { pos: new THREE.Vector3(50, 0, -30), dir: new THREE.Vector3(-1, 0, 0) },
+      { pos: new THREE.Vector3(-30, 0, -50), dir: new THREE.Vector3(0, 0, 1) },
     ];
 
     for (const cfg of boostConfigs) {
@@ -198,12 +233,14 @@ export class CityWorld {
       this.scene.add(pad.mesh);
     }
 
-    // 2. Trampolines
+    // 2. Trampolines across open parks and plazas
     const trampConfigs = [
       new THREE.Vector3(-30, 0, -30),
       new THREE.Vector3(30, 0, 30),
       new THREE.Vector3(-45, 0, 20),
       new THREE.Vector3(50, 0, -45),
+      new THREE.Vector3(0, 0, 50),
+      new THREE.Vector3(-10, 0, -55),
     ];
 
     for (const pos of trampConfigs) {
@@ -212,12 +249,16 @@ export class CityWorld {
       this.scene.add(tr.mesh);
     }
 
-    // 3. Destructible Walls blocking alleys
+    // 3. Destructible Walls blocking alleys (rewarding balls that grow big enough to smash them!)
     const wallConfigs = [
       { pos: new THREE.Vector3(-20, 0, 15), w: 6.0 },
       { pos: new THREE.Vector3(20, 0, -15), w: 6.0 },
       { pos: new THREE.Vector3(-35, 0, -10), w: 5.0 },
       { pos: new THREE.Vector3(15, 0, 35), w: 5.0 },
+      { pos: new THREE.Vector3(-10, 0, 40), w: 5.5 },
+      { pos: new THREE.Vector3(35, 0, -10), w: 5.5 },
+      { pos: new THREE.Vector3(-45, 0, -45), w: 6.0 },
+      { pos: new THREE.Vector3(45, 0, 45), w: 6.0 },
     ];
 
     for (const cfg of wallConfigs) {
@@ -230,6 +271,7 @@ export class CityWorld {
       new THREE.Vector3(0, 0, 48),
       new THREE.Vector3(-48, 0, 0),
       new THREE.Vector3(40, 4.2, -15), // On highway bridge
+      new THREE.Vector3(48, 0, 30),
     ];
 
     for (const pos of magnetPos) {
@@ -240,7 +282,7 @@ export class CityWorld {
   }
 
   private spawnHazardsAndBonuses(): void {
-    // 1. Cacti (parks and open plaza)
+    // 1. Cacti (parks, maze borders, and open plaza)
     const cactusLocations = [
       new THREE.Vector3(-25, 0, -25),
       new THREE.Vector3(25, 0, 25),
@@ -248,6 +290,10 @@ export class CityWorld {
       new THREE.Vector3(35, 0, -35),
       new THREE.Vector3(-15, 0, 45),
       new THREE.Vector3(55, 0, 15),
+      new THREE.Vector3(-35, 0, 20),
+      new THREE.Vector3(20, 0, -50),
+      new THREE.Vector3(-55, 0, -15),
+      new THREE.Vector3(10, 0, 55),
     ];
     cactusLocations.forEach((pos, idx) => {
       const cactus = new CactusHazard(`cactus-${idx}`, pos);
@@ -255,13 +301,16 @@ export class CityWorld {
       this.scene.add(cactus.mesh);
     });
 
-    // 2. Spike Traps (narrow alleys and intersections)
+    // 2. Spike Traps (narrow alleys and maze turns)
     const spikeLocations = [
       new THREE.Vector3(-15, 0, 0),
       new THREE.Vector3(15, 0, 0),
       new THREE.Vector3(0, 0, -35),
       new THREE.Vector3(30, 0, 45),
       new THREE.Vector3(-40, 0, 15),
+      new THREE.Vector3(-28, 0, 35),
+      new THREE.Vector3(25, 0, -28),
+      new THREE.Vector3(45, 0, 10),
     ];
     spikeLocations.forEach((pos, idx) => {
       const spike = new SpikeTrapHazard(`spike-${idx}`, pos);
@@ -275,6 +324,8 @@ export class CityWorld {
       new THREE.Vector3(40, 4.0, -15),
       new THREE.Vector3(-25, 0, -10),
       new THREE.Vector3(10, 0, -50),
+      new THREE.Vector3(-50, 0, -25),
+      new THREE.Vector3(30, 0, -15),
     ];
     sawLocations.forEach((pos, idx) => {
       const saw = new SawbladeHazard(`saw-${idx}`, pos);
@@ -291,6 +342,9 @@ export class CityWorld {
       new THREE.Vector3(40, 4.6, 0), // center of elevated highway bridge
       new THREE.Vector3(-50, 0.5, 25),
       new THREE.Vector3(50, 0.5, -25),
+      new THREE.Vector3(-20, 0.5, -50),
+      new THREE.Vector3(20, 0.5, 50),
+      new THREE.Vector3(0, 0.5, 0), // At central plaza fountain
     ];
     bonusLocations.forEach((pos, idx) => {
       const tb = new TimeBonusItem(`bonus-${idx}`, pos);
@@ -318,7 +372,7 @@ export class CityWorld {
     }
   }
 
-  public loadStage(stage: StageConfig, itemCount: number = 260): void {
+  public loadStage(stage: StageConfig, itemCount: number = 650): void {
     this.currentStage = stage;
 
     // Portal cleanup & spawn
@@ -347,7 +401,7 @@ export class CityWorld {
     this.populateCity(itemCount);
   }
 
-  public populateCity(count: number = 260): void {
+  public populateCity(count: number = 650): void {
     for (const item of this.items) {
       this.scene.remove(item.mesh);
     }
