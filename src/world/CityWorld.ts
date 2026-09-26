@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { AbsorbableItem } from '../physics/AbsorbableItem';
 import { ItemCatalog } from './ItemCatalog';
 import { RollingBall } from '../physics/RollingBall';
+import { BoostPad, Trampoline, DestructibleWall, SuperMagnetGadget } from './CityGadgets';
 
 export interface CityWorldConfig {
   itemCount?: number;
@@ -16,6 +17,12 @@ export class CityWorld {
   private citySize: number;
   private groundGroup: THREE.Group;
 
+  // Interactive Gadgets
+  public readonly boostPads: BoostPad[] = [];
+  public readonly trampolines: Trampoline[] = [];
+  public readonly destructibleWalls: DestructibleWall[] = [];
+  public readonly superMagnets: SuperMagnetGadget[] = [];
+
   constructor(scene: THREE.Scene, config: CityWorldConfig = {}) {
     this.scene = scene;
     this.catalog = new ItemCatalog();
@@ -25,7 +32,8 @@ export class CityWorld {
 
     this.createCityGround();
     this.createLighting();
-    this.populateCity(config.itemCount ?? 180);
+    this.spawnGadgets();
+    this.populateCity(config.itemCount ?? 260);
   }
 
   public getTotalItemCount(): number {
@@ -46,12 +54,10 @@ export class CityWorld {
   }
 
   private createLighting(): void {
-    // Soft sky ambient light
-    const ambientLight = new THREE.HemisphereLight(0xecf8ff, 0x5a7d65, 0.7);
+    const ambientLight = new THREE.HemisphereLight(0xecf8ff, 0x5a7d65, 0.75);
     this.scene.add(ambientLight);
 
-    // Warm sun light with directional shadow
-    const sunLight = new THREE.DirectionalLight(0xfff6e5, 1.2);
+    const sunLight = new THREE.DirectionalLight(0xfff6e5, 1.3);
     sunLight.position.set(40, 70, 30);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 2048;
@@ -71,7 +77,7 @@ export class CityWorld {
     // 1. Base asphalt ground
     const groundGeo = new THREE.PlaneGeometry(this.citySize * 2, this.citySize * 2);
     const groundMat = new THREE.MeshStandardMaterial({
-      color: 0x3a3f47,
+      color: 0x32373e,
       roughness: 0.85,
       metalness: 0.1,
     });
@@ -80,34 +86,64 @@ export class CityWorld {
     ground.receiveShadow = true;
     this.groundGroup.add(ground);
 
-    // 2. Decorative road grid & green park tiles
+    // 2. City blocks & parks
     const blockSize = 30;
-    const roadWidth = 8;
+    const roadWidth = 10;
 
     for (let x = -this.citySize + blockSize; x < this.citySize - blockSize; x += blockSize + roadWidth) {
       for (let z = -this.citySize + blockSize; z < this.citySize - blockSize; z += blockSize + roadWidth) {
-        // Sidewalk / Grass Plaza tile
         const isPark = (Math.abs(x + z) % (blockSize * 2)) === 0;
-        const tileColor = isPark ? 0x489655 : 0x7a828e;
+        const tileColor = isPark ? 0x38b000 : 0x6c757d;
         const tileMat = new THREE.MeshStandardMaterial({
           color: tileColor,
           roughness: 0.8,
         });
 
-        const tile = new THREE.Mesh(new THREE.BoxGeometry(blockSize, 0.15, blockSize), tileMat);
-        tile.position.set(x, 0.075, z);
+        const tile = new THREE.Mesh(new THREE.BoxGeometry(blockSize, 0.2, blockSize), tileMat);
+        tile.position.set(x, 0.1, z);
         tile.receiveShadow = true;
         this.groundGroup.add(tile);
       }
     }
 
-    // 3. Perimeter Boundary Walls
-    const wallHeight = 6;
-    const wallThickness = 2;
-    const wallMat = new THREE.MeshStandardMaterial({
-      color: 0x24272c,
-      roughness: 0.9,
-    });
+    // 3. Central Plaza with Fountain
+    const plazaMat = new THREE.MeshStandardMaterial({ color: 0xadb5bd, roughness: 0.6 });
+    const plaza = new THREE.Mesh(new THREE.CylinderGeometry(14, 15, 0.4, 32), plazaMat);
+    plaza.position.set(0, 0.2, 0);
+    plaza.receiveShadow = true;
+    this.groundGroup.add(plaza);
+
+    const fountainMat = new THREE.MeshStandardMaterial({ color: 0x0077b6, roughness: 0.1 });
+    const fountain = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 0.8, 24), fountainMat);
+    fountain.position.set(0, 0.6, 0);
+    this.groundGroup.add(fountain);
+
+    // 4. Elevated Highway Bridge with Ramps
+    const bridgeMat = new THREE.MeshStandardMaterial({ color: 0x495057, roughness: 0.7 });
+    const bridge = new THREE.Mesh(new THREE.BoxGeometry(12, 0.5, 60), bridgeMat);
+    bridge.position.set(40, 4.0, 0);
+    bridge.castShadow = true;
+    bridge.receiveShadow = true;
+    this.groundGroup.add(bridge);
+
+    // North Ramp
+    const rampNorth = new THREE.Mesh(new THREE.BoxGeometry(12, 0.5, 20), bridgeMat);
+    rampNorth.rotation.x = -Math.atan2(4.0, 20);
+    rampNorth.position.set(40, 2.0, 39);
+    rampNorth.receiveShadow = true;
+    this.groundGroup.add(rampNorth);
+
+    // South Ramp
+    const rampSouth = new THREE.Mesh(new THREE.BoxGeometry(12, 0.5, 20), bridgeMat);
+    rampSouth.rotation.x = Math.atan2(4.0, 20);
+    rampSouth.position.set(40, 2.0, -39);
+    rampSouth.receiveShadow = true;
+    this.groundGroup.add(rampSouth);
+
+    // 5. Perimeter Boundary Walls
+    const wallHeight = 7;
+    const wallThickness = 2.5;
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0x212529, roughness: 0.9 });
 
     const createWall = (width: number, depth: number, posX: number, posZ: number) => {
       const wall = new THREE.Mesh(new THREE.BoxGeometry(width, wallHeight, depth), wallMat);
@@ -123,8 +159,65 @@ export class CityWorld {
     createWall(wallThickness, this.citySize * 2, this.citySize, 0);
   }
 
-  public populateCity(count: number): void {
-    // Clear any existing items
+  private spawnGadgets(): void {
+    // 1. Boost Pads on roads
+    const boostConfigs = [
+      { pos: new THREE.Vector3(0, 0, 25), dir: new THREE.Vector3(0, 0, 1) },
+      { pos: new THREE.Vector3(0, 0, -25), dir: new THREE.Vector3(0, 0, -1) },
+      { pos: new THREE.Vector3(25, 0, 0), dir: new THREE.Vector3(1, 0, 0) },
+      { pos: new THREE.Vector3(-25, 0, 0), dir: new THREE.Vector3(-1, 0, 0) },
+      { pos: new THREE.Vector3(40, 4.0, 0), dir: new THREE.Vector3(0, 0, 1) }, // on bridge!
+      { pos: new THREE.Vector3(-50, 0, 40), dir: new THREE.Vector3(1, 0, 0) },
+    ];
+
+    for (const cfg of boostConfigs) {
+      const pad = new BoostPad(cfg.pos, cfg.dir);
+      this.boostPads.push(pad);
+      this.scene.add(pad.mesh);
+    }
+
+    // 2. Trampolines
+    const trampConfigs = [
+      new THREE.Vector3(-30, 0, -30),
+      new THREE.Vector3(30, 0, 30),
+      new THREE.Vector3(-45, 0, 20),
+      new THREE.Vector3(50, 0, -45),
+    ];
+
+    for (const pos of trampConfigs) {
+      const tr = new Trampoline(pos, 2.2);
+      this.trampolines.push(tr);
+      this.scene.add(tr.mesh);
+    }
+
+    // 3. Destructible Walls blocking alleys
+    const wallConfigs = [
+      { pos: new THREE.Vector3(-20, 0, 15), w: 6.0 },
+      { pos: new THREE.Vector3(20, 0, -15), w: 6.0 },
+      { pos: new THREE.Vector3(-35, 0, -10), w: 5.0 },
+      { pos: new THREE.Vector3(15, 0, 35), w: 5.0 },
+    ];
+
+    for (const cfg of wallConfigs) {
+      const dw = new DestructibleWall(this.scene, cfg.pos, cfg.w, 2.4);
+      this.destructibleWalls.push(dw);
+    }
+
+    // 4. Super Magnets
+    const magnetPos = [
+      new THREE.Vector3(0, 0, 48),
+      new THREE.Vector3(-48, 0, 0),
+      new THREE.Vector3(40, 4.2, -15), // On highway bridge
+    ];
+
+    for (const pos of magnetPos) {
+      const mag = new SuperMagnetGadget(pos);
+      this.superMagnets.push(mag);
+      this.scene.add(mag.mesh);
+    }
+  }
+
+  public populateCity(count: number = 260): void {
     for (const item of this.items) {
       this.scene.remove(item.mesh);
     }
@@ -132,13 +225,6 @@ export class CityWorld {
     this.absorbedCount = 0;
 
     const range = this.citySize - 12;
-
-    // Distribute objects across tiers:
-    // Tier 1 (Tiny): 45% (easy starting absorption near center)
-    // Tier 2 (Small): 28%
-    // Tier 3 (Medium): 16%
-    // Tier 4 (Large): 8%
-    // Tier 5 (Huge): 3% (scattered farther out)
 
     for (let i = 0; i < count; i++) {
       const rand = Math.random();
@@ -148,13 +234,13 @@ export class CityWorld {
       if (rand < 0.45) {
         tier = 1;
         minRadiusFromCenter = 3;
-      } else if (rand < 0.73) {
+      } else if (rand < 0.72) {
         tier = 2;
         minRadiusFromCenter = 12;
-      } else if (rand < 0.89) {
+      } else if (rand < 0.88) {
         tier = 3;
         minRadiusFromCenter = 22;
-      } else if (rand < 0.97) {
+      } else if (rand < 0.96) {
         tier = 4;
         minRadiusFromCenter = 35;
       } else {
@@ -162,7 +248,6 @@ export class CityWorld {
         minRadiusFromCenter = 50;
       }
 
-      // Generate random position within bounds
       const angle = Math.random() * Math.PI * 2;
       const dist = minRadiusFromCenter + Math.random() * (range - minRadiusFromCenter);
       const posX = Math.cos(angle) * dist;
@@ -170,22 +255,49 @@ export class CityWorld {
 
       const type = this.catalog.getRandomTypeForTier(tier);
       const item = this.catalog.createItem(type, tier, new THREE.Vector3(posX, 0, posZ));
-
-      // Random slight Y-rotation for natural look
       item.mesh.rotation.y = Math.random() * Math.PI * 2;
 
       this.addItem(item);
     }
   }
 
-  /**
-   * Collision detection and absorption against the player's RollingBall
-   */
-  public checkCollisions(ball: RollingBall): void {
+  public checkCollisions(ball: RollingBall, dt: number = 0.016): void {
     const ballPos = ball.getPosition();
     const ballRadius = ball.getRadius();
-    const checkRadius = ballRadius + 10.0; // Broad-phase distance filter
+    const checkRadius = ballRadius + 12.0;
 
+    // 1. Update & check Boost Pads
+    for (const pad of this.boostPads) {
+      pad.update(dt);
+      pad.checkInteraction(ball);
+    }
+
+    // 2. Update & check Trampolines
+    for (const tr of this.trampolines) {
+      tr.update(dt);
+      tr.checkInteraction(ball);
+    }
+
+    // 3. Update & check Destructible Walls
+    for (const wall of this.destructibleWalls) {
+      wall.update(dt);
+      wall.checkCollision(ball);
+    }
+
+    // 4. Check & update Super Magnets
+    for (const mag of this.superMagnets) {
+      if (!mag.isActive()) {
+        const dx = ballPos.x - mag.position.x;
+        const dz = ballPos.z - mag.position.z;
+        if (Math.hypot(dx, dz) < ballRadius + 1.2) {
+          mag.activate(ball, 10.0);
+          this.scene.remove(mag.mesh);
+        }
+      }
+      mag.update(dt, ball, this.items);
+    }
+
+    // 5. Absorbable items collision
     for (let i = this.items.length - 1; i >= 0; i--) {
       const item = this.items[i];
       if (item.isAbsorbed()) {
@@ -198,7 +310,6 @@ export class CityWorld {
       const dz = ballPos.z - itemPos.z;
       const distSq = dx * dx + dz * dz;
 
-      // Broad-phase check
       if (distSq > checkRadius * checkRadius) {
         continue;
       }
@@ -206,7 +317,6 @@ export class CityWorld {
       const dist = Math.sqrt(distSq);
       const combinedRadius = ballRadius + item.radius;
 
-      // Narrow-phase collision check
       if (dist <= combinedRadius) {
         if (ball.canAbsorb(item)) {
           const absorbed = ball.tryAbsorb(item);
@@ -215,7 +325,6 @@ export class CityWorld {
             this.absorbedCount++;
           }
         } else {
-          // Object is too big to absorb: push ball back gently (solid obstacle bounce)
           const overlap = combinedRadius - dist;
           if (dist > 0.001) {
             const pushX = (dx / dist) * overlap * 0.4;
@@ -223,7 +332,6 @@ export class CityWorld {
             ballPos.x += pushX;
             ballPos.z += pushZ;
 
-            // Dampen ball velocity on impact with unabsorbable obstacle
             const vel = ball.getVelocity();
             vel.x *= -0.25;
             vel.z *= -0.25;
@@ -233,9 +341,6 @@ export class CityWorld {
     }
   }
 
-  /**
-   * Keep ball inside city boundaries
-   */
   public clampBallToBounds(ball: RollingBall): void {
     const pos = ball.getPosition();
     const limit = this.citySize - ball.getRadius() - 1.5;
@@ -258,7 +363,7 @@ export class CityWorld {
     }
   }
 
-  public reset(itemCount: number = 180): void {
+  public reset(itemCount: number = 260): void {
     this.populateCity(itemCount);
   }
 }
