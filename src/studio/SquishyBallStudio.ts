@@ -3,13 +3,23 @@ import confetti from 'canvas-confetti';
 import { DeformableMesh } from './DeformableMesh';
 import { asmrAudio } from '../audio/AsmrAudioEngine';
 import { AbsorbableItem } from '../physics/AbsorbableItem';
+import { WafuMaker } from './WafuMaker';
 
-export type StudioTool = 'poke' | 'stretch' | 'crack' | 'slice' | 'pop';
+export type StudioTool =
+  | 'poke'
+  | 'stretch'
+  | 'crack'
+  | 'slice'
+  | 'hammer'
+  | 'hydraulic'
+  | 'wire_cutter'
+  | 'pop';
 
 export class SquishyBallStudio {
   public readonly scene: THREE.Scene;
   public readonly studioGroup: THREE.Group;
   public deformableBall: DeformableMesh;
+  public readonly wafuMaker: WafuMaker;
 
   private currentTool: StudioTool = 'poke';
   private pedestal: THREE.Mesh;
@@ -28,6 +38,7 @@ export class SquishyBallStudio {
 
   constructor(scene: THREE.Scene, initialRadius: number = 0.8) {
     this.scene = scene;
+    this.wafuMaker = new WafuMaker();
     this.studioGroup = new THREE.Group();
     this.scene.add(this.studioGroup);
 
@@ -76,10 +87,10 @@ export class SquishyBallStudio {
     this.studioGroup.add(this.particleGroup);
 
     this.setupStudioLighting();
+    this.refreshFillings(initialRadius);
   }
 
   private setupStudioLighting(): void {
-    // Key soft spotlight
     const spot = new THREE.SpotLight(0xfff5ea, 2.5);
     spot.position.set(5, 12, 8);
     spot.angle = Math.PI / 4;
@@ -87,12 +98,10 @@ export class SquishyBallStudio {
     spot.castShadow = true;
     this.studioGroup.add(spot);
 
-    // Neon pink rim light
     const rimPink = new THREE.DirectionalLight(0xff4499, 1.8);
     rimPink.position.set(-6, 3, -4);
     this.studioGroup.add(rimPink);
 
-    // Cyan accent light
     const rimCyan = new THREE.DirectionalLight(0x00e5ff, 1.4);
     rimCyan.position.set(6, 2, -5);
     this.studioGroup.add(rimCyan);
@@ -100,10 +109,30 @@ export class SquishyBallStudio {
 
   public setTool(tool: StudioTool): void {
     this.currentTool = tool;
+
+    // Direct action tools:
+    if (tool === 'hammer') {
+      this.triggerHammerSmash();
+    } else if (tool === 'hydraulic') {
+      this.triggerHydraulicCrush();
+    } else if (tool === 'wire_cutter') {
+      this.triggerWireCutter();
+    } else if (tool === 'pop') {
+      this.triggerPop();
+    }
   }
 
   public getTool(): StudioTool {
     return this.currentTool;
+  }
+
+  public refreshFillings(radius?: number): void {
+    const r = radius ?? (this.deformableBall.mesh.geometry.boundingSphere?.radius || 0.8);
+    while (this.internalItemsGroup.children.length > 0) {
+      this.internalItemsGroup.remove(this.internalItemsGroup.children[0]);
+    }
+    const fillingsMesh = this.wafuMaker.createFillingGroup(r);
+    this.internalItemsGroup.add(fillingsMesh);
   }
 
   public syncFromRollingBall(radius: number, material: THREE.Material, items: readonly AbsorbableItem[]): void {
@@ -111,22 +140,17 @@ export class SquishyBallStudio {
     this.deformableBall.mesh.material = material;
     this.deformableBall.mesh.position.set(0, radius + 0.1, 0);
 
-    // Clear and re-populate internal visual items inside translucent/squishy ball
-    while (this.internalItemsGroup.children.length > 0) {
-      this.internalItemsGroup.remove(this.internalItemsGroup.children[0]);
-    }
+    this.refreshFillings(radius);
 
-    // Place scaled miniature representations of absorbed items floating inside
-    const maxPreviewItems = Math.min(items.length, 30);
+    // Also include miniature representations of absorbed items
+    const maxPreviewItems = Math.min(items.length, 25);
     for (let i = 0; i < maxPreviewItems; i++) {
       const item = items[i];
       const clone = item.mesh.clone();
-      const scale = 0.25;
-      clone.scale.multiplyScalar(scale);
+      clone.scale.multiplyScalar(0.25);
 
-      // Random position inside the sphere
       const u = Math.random();
-      const r = (radius * 0.75) * Math.cbrt(u);
+      const r = (radius * 0.7) * Math.cbrt(u);
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(Math.random() * 2 - 1);
 
@@ -139,9 +163,6 @@ export class SquishyBallStudio {
     }
   }
 
-  /**
-   * Handle pointer down on the squishy ball
-   */
   public onPointerDown(intersection: THREE.Intersection): void {
     this.isPointerDown = true;
     const localHit = this.deformableBall.mesh.worldToLocal(intersection.point.clone());
@@ -152,7 +173,18 @@ export class SquishyBallStudio {
       case 'poke': {
         this.deformableBall.poke(localHit, 0.45, 0.55);
         this.spawnParticles(intersection.point, 4, 0xff70a6);
-        asmrAudio.playSquish(0.85);
+
+        // Sound according to selected fillings
+        const soundType = this.wafuMaker.getPrimaryTouchSound();
+        if (soundType === 'orbeez') {
+          asmrAudio.playWaterBeads();
+        } else if (soundType === 'floam') {
+          asmrAudio.playFloamCrunch();
+        } else if (soundType === 'clay') {
+          asmrAudio.playClayCrack();
+        } else {
+          asmrAudio.playSquish(0.85);
+        }
         break;
       }
       case 'crack': {
@@ -172,6 +204,18 @@ export class SquishyBallStudio {
         asmrAudio.playStretch(0.4);
         break;
       }
+      case 'hammer': {
+        this.triggerHammerSmash(intersection.point);
+        break;
+      }
+      case 'hydraulic': {
+        this.triggerHydraulicCrush();
+        break;
+      }
+      case 'wire_cutter': {
+        this.triggerWireCutter();
+        break;
+      }
       case 'pop': {
         this.triggerPop(intersection.point);
         break;
@@ -179,9 +223,6 @@ export class SquishyBallStudio {
     }
   }
 
-  /**
-   * Handle pointer move / drag on the squishy ball
-   */
   public onPointerMove(intersection: THREE.Intersection | null, dragDelta?: THREE.Vector2): void {
     if (!this.isPointerDown) return;
 
@@ -192,7 +233,6 @@ export class SquishyBallStudio {
         this.deformableBall.poke(localHit, 0.28, 0.45);
         asmrAudio.playSquish(0.4);
       } else if (this.currentTool === 'slice' && this.lastHitPoint) {
-        // Draw slice scratch
         this.addSliceSegment(this.lastHitPoint, localHit);
         this.deformableBall.poke(localHit, 0.2, 0.3);
         this.spawnParticles(intersection.point, 2, 0xffe066);
@@ -204,15 +244,11 @@ export class SquishyBallStudio {
 
       this.lastHitPoint = localHit.clone();
     } else if (this.currentTool === 'stretch' && dragDelta && this.dragStartPoint) {
-      // Pull outward into camera/drag direction
       const pullVec = new THREE.Vector3(dragDelta.x * 0.015, -dragDelta.y * 0.015, 0.1);
       this.deformableBall.pinchAndPull(this.dragStartPoint, pullVec, 0.65);
     }
   }
 
-  /**
-   * Handle pointer up
-   */
   public onPointerUp(): void {
     if (this.isPointerDown && this.currentTool === 'stretch') {
       asmrAudio.playSquish(0.6);
@@ -223,42 +259,88 @@ export class SquishyBallStudio {
   }
 
   /**
-   * Trigger satisfying burst pop of the Wafu Ball
+   * 🔨 SMASH: Super Hammer Smash
+   */
+  public triggerHammerSmash(hitPos?: THREE.Vector3): void {
+    const center = hitPos ?? this.deformableBall.mesh.position.clone();
+    asmrAudio.playHammerSmash();
+
+    // Heavy vertex deformation
+    this.deformableBall.hammerSmashDeform(new THREE.Vector3(0, 1.0, 0), 0.95);
+
+    // Spiderweb cracks
+    for (let i = 0; i < 4; i++) {
+      const offset = new THREE.Vector3((Math.random() - 0.5) * 0.4, 0.8, (Math.random() - 0.5) * 0.4);
+      this.addCrackDecal(offset);
+    }
+
+    // Blast particles outward
+    this.spawnParticles(center, 40, 0xffffff, 4.0);
+    this.spawnParticles(center, 20, 0xff0055, 3.5);
+  }
+
+  /**
+   * ⚡ CRUSH: Hydraulic Press Flattening
+   */
+  public triggerHydraulicCrush(): void {
+    asmrAudio.playHydraulicCrush();
+
+    // Squash into flat pancake
+    this.deformableBall.squashPancake(0.85);
+
+    // Squirt fluid drops outward horizontally
+    const origin = this.deformableBall.mesh.position.clone();
+    origin.y = 0.1;
+    this.spawnParticles(origin, 35, 0x00e5ff, 3.0);
+  }
+
+  /**
+   * 🧇 SHRED: Wire Grid Cutter
+   */
+  public triggerWireCutter(): void {
+    asmrAudio.playWireShred();
+
+    // Create waffle grid cut lines
+    for (let x = -0.6; x <= 0.6; x += 0.3) {
+      this.addSliceSegment(new THREE.Vector3(x, 1.0, -0.6), new THREE.Vector3(x, 1.0, 0.6));
+      this.addSliceSegment(new THREE.Vector3(-0.6, 1.0, x), new THREE.Vector3(0.6, 1.0, x));
+    }
+
+    this.deformableBall.poke(new THREE.Vector3(0, 0.8, 0), 0.5, 1.2);
+    this.spawnParticles(this.deformableBall.mesh.position, 25, 0xffdd00, 2.5);
+  }
+
+  /**
+   * 💥 POP: Mega Burst & Confetti
    */
   public triggerPop(worldPos?: THREE.Vector3): void {
     const burstCenter = worldPos ?? this.deformableBall.mesh.position.clone();
     asmrAudio.playPop();
 
-    // Trigger canvas confetti celebration
     try {
       confetti({
-        particleCount: 80,
-        spread: 100,
+        particleCount: 100,
+        spread: 120,
         origin: { y: 0.5 },
-        colors: ['#ff4499', '#00e5ff', '#ffdd00', '#99ff33', '#ffffff'],
+        colors: ['#ff4499', '#00e5ff', '#ffdd00', '#99ff33', '#ffffff', '#7209b7'],
       });
     } catch {
-      // Canvas confetti may not run in test environments
+      // Test environment fallback
     }
 
-    // Spawn 3D jelly drop particles
-    this.spawnParticles(burstCenter, 35, 0xff4499, 5.0);
-
-    // Rapid expansion followed by reset
-    this.deformableBall.poke(new THREE.Vector3(0, 0, 0), -0.6, 2.0);
-
-    // Clear cracks and slices
+    this.spawnParticles(burstCenter, 45, 0xff4499, 5.0);
+    this.deformableBall.poke(new THREE.Vector3(0, 0, 0), -0.7, 2.0);
     this.clearCracksAndSlices();
   }
 
   private addCrackDecal(localPoint: THREE.Vector3): void {
     const crackMat = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
-    const numBranches = 4;
+    const numBranches = 5;
     const points: THREE.Vector3[] = [];
 
     for (let i = 0; i < numBranches; i++) {
       const angle = (i / numBranches) * Math.PI * 2 + Math.random() * 0.5;
-      const len = 0.15 + Math.random() * 0.2;
+      const len = 0.2 + Math.random() * 0.25;
       const endPoint = localPoint.clone().add(
         new THREE.Vector3(Math.cos(angle) * len, Math.sin(angle) * len, Math.sin(angle * 2) * 0.05)
       );
@@ -287,7 +369,7 @@ export class SquishyBallStudio {
   }
 
   private spawnParticles(origin: THREE.Vector3, count: number, color: number, speedMult: number = 1.0): void {
-    const geo = new THREE.SphereGeometry(0.04, 8, 8);
+    const geo = new THREE.SphereGeometry(0.05, 8, 8);
     const mat = new THREE.MeshBasicMaterial({ color });
 
     for (let i = 0; i < count; i++) {
@@ -295,9 +377,9 @@ export class SquishyBallStudio {
       mesh.position.copy(origin);
 
       const vel = new THREE.Vector3(
-        (Math.random() - 0.5) * 4.0 * speedMult,
-        (Math.random() * 4.0 + 1.0) * speedMult,
-        (Math.random() - 0.5) * 4.0 * speedMult
+        (Math.random() - 0.5) * 4.5 * speedMult,
+        (Math.random() * 4.5 + 1.2) * speedMult,
+        (Math.random() - 0.5) * 4.5 * speedMult
       );
 
       this.particleGroup.add(mesh);
@@ -306,16 +388,13 @@ export class SquishyBallStudio {
   }
 
   public update(dt: number): void {
-    // 1. Update squishy springs
     this.deformableBall.updateSprings(dt);
 
-    // 2. Gentle slow turntable rotation of pedestal & ball when idle
     if (!this.isPointerDown) {
       this.deformableBall.mesh.rotation.y += dt * 0.25;
       this.pedestal.rotation.y += dt * 0.25;
     }
 
-    // 3. Update particle bursts
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
       p.life -= dt * 2.0;
@@ -326,7 +405,7 @@ export class SquishyBallStudio {
         continue;
       }
 
-      p.vel.y -= 9.8 * dt; // Gravity
+      p.vel.y -= 9.8 * dt;
       p.mesh.position.addScaledVector(p.vel, dt);
       p.mesh.scale.setScalar(Math.max(0.01, p.life));
     }

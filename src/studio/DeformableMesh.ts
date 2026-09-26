@@ -120,6 +120,47 @@ export class DeformableMesh {
   }
 
   /**
+   * Flattens the ball vertically and expands horizontally (Hydraulic press or stomp)
+   */
+  public squashPancake(compression: number = 0.75): void {
+    const clampComp = Math.max(0.1, Math.min(0.9, compression));
+    const expand = 1.0 + clampComp * 0.8;
+
+    for (let i = 0; i < this.vertexCount; i++) {
+      const idx = i * 3;
+      const oy = this.originalPositions[idx + 1];
+
+      // Flatten Y towards bottom
+      this.currentPositions[idx] = this.originalPositions[idx] * expand;
+      this.currentPositions[idx + 1] = oy * (1.0 - clampComp);
+      this.currentPositions[idx + 2] = this.originalPositions[idx + 2] * expand;
+
+      // Impart upward elastic velocity for jiggle recovery
+      this.velocities[idx + 1] += Math.sign(oy) * 12.0 * clampComp;
+    }
+
+    this.deformed = true;
+    this.posAttr.needsUpdate = true;
+    this.geometry.computeVertexNormals();
+  }
+
+  /**
+   * Heavy hammer smash dent from impact direction
+   */
+  public hammerSmashDeform(localHitPoint: THREE.Vector3, intensity: number = 0.9): void {
+    this.poke(localHitPoint, intensity, 1.2);
+    // Also slightly squash the whole mesh
+    for (let i = 0; i < this.vertexCount; i++) {
+      const idx = i * 3;
+      this.currentPositions[idx + 1] *= 0.82;
+      this.velocities[idx + 1] -= 8.0;
+    }
+    this.deformed = true;
+    this.posAttr.needsUpdate = true;
+    this.geometry.computeVertexNormals();
+  }
+
+  /**
    * Spring-damper relaxation step to return vertices to their original spherical shape
    */
   public updateSprings(dt: number): void {

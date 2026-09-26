@@ -52,4 +52,20 @@ describe('DeformableMesh Squishy Physics', () => {
     // Should be significantly closer to 1.0 than immediately after poke
     expect(Math.abs(relaxedZ - 1.0)).toBeLessThan(Math.abs(deformedZ - 1.0));
   });
+
+  it('should flatten and bulge vertices on squashPancake', () => {
+    deformable.squashPancake(0.7);
+    expect(deformable.isDeformed()).toBe(true);
+
+    const topVertex = deformable.getNearestVertexPosition(new THREE.Vector3(0, 1.0, 0));
+    expect(topVertex.y).toBeLessThan(0.8);
+  });
+
+  it('should create deep impact dent on hammerSmashDeform', () => {
+    deformable.hammerSmashDeform(new THREE.Vector3(0, 1.0, 0), 0.85);
+    expect(deformable.isDeformed()).toBe(true);
+
+    const topVertex = deformable.getNearestVertexPosition(new THREE.Vector3(0, 1.0, 0));
+    expect(topVertex.y).toBeLessThan(0.5);
+  });
 });
