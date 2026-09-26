@@ -1,68 +1,75 @@
 # 🌸 WAFU BALL (와뿌볼)
-> **데굴데굴 괴혼(Katamari Damacy) 스타일 3D 롤링 성장 & 말랑 ASMR 스퀴시 샌드박스**
+> **데굴데굴 괴혼(Katamari Damacy) 롤링 성장 & 말랑 ASMR 스퀴시 메이커 & 뿌시기 샌드박스 3D**
 
+[![Release](https://img.shields.io/badge/Release-v1.1.0-ff006e.svg)](https://github.com/Perfect-Yanus/wafu/releases/tag/v1.1.0)
+[![Android APK](https://img.shields.io/badge/Android%20APK-Download%20v1.1.0-brightgreen.svg)](https://github.com/Perfect-Yanus/wafu/releases/download/v1.1.0/wafu-ball-v1.1.0.apk)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
 [![Three.js](https://img.shields.io/badge/Three.js-0.180-black.svg)](https://threejs.org/)
-[![Vite](https://img.shields.io/badge/Vite-6.2-646CFF.svg)](https://vitejs.dev/)
 [![Web Audio API](https://img.shields.io/badge/ASMR-Web%20Audio%20Procedural-ff4d88.svg)](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)
+
+---
+
+## 📥 안드로이드 APK 다운로드 (Download Android APK)
+
+안드로이드 폰/태블릿에서 아래 링크를 눌러 즉시 설치하고 플레이할 수 있습니다:
+- 🚀 **[wafu-ball-v1.1.0.apk 직접 다운로드 (최신 v1.1.0)](https://github.com/Perfect-Yanus/wafu/releases/download/v1.1.0/wafu-ball-v1.1.0.apk)**
+- 📦 **[GitHub Releases 전체 목록](https://github.com/Perfect-Yanus/wafu/releases)**
 
 ---
 
 ## 🎮 게임 소개
 
-**WAFU BALL (와뿌볼)**은 도시를 데굴데굴 굴러다니며 사탕, 오리 인형, 자판기, 자동차, 건물까지 삼켜 성장시키는 **괴혼(Katamari Damacy)**식 롤링 메카닉과, 커진 공을 나만의 **와뿌볼(스퀴시/테이프볼/크런치볼)**로 주무르고, 색칠하고, 깨뜨리며 힐링하는 **실시간 ASMR 촉감 스튜디오**가 결합된 3D 웹 게임입니다.
+**WAFU BALL (와뿌볼)**은 도시를 데굴데굴 고속으로 굴러다니며 사탕, 도넛, 자판기, 자동차, 건물까지 삼켜 성장시키는 **괴혼(Katamari Damacy)**식 롤링 메카닉과, 커진 공의 속재료(개구리알/폼폼이/슬라임 등)를 채워 넣는 **와뿌볼 DIY ASMR 만들기**, 그리고 망치나 유압 프레스로 짓누르는 **와뿌볼 뿌시기(Smash)** 기능이 결합된 3D 샌드박스 게임입니다.
 
 ---
 
 ## 🌟 핵심 특징 (Key Features)
 
-### 1. 🏙️ 데굴데굴 괴혼 모드 (City Rolling Phase)
-- **정밀한 3D 구체 물리 & 관성 회전**: 이동 속도에 비례하는 현실감 넘치는 롤링 모멘텀과 탄성 바운스.
-- **단계별 흡수 시스템 (Tiered Absorption)**:
-  - **Tier 1 (Tiny: 0.1m ~ 0.35m)**: 롤리팝 사탕, 딸기, 러버덕, 황금 주사위
-  - **Tier 2 (Small: 0.4m ~ 1.0m)**: 안전 콘, 음료수 캔, 택배 상자, 고양이
-  - **Tier 3 (Medium: 1.2m ~ 2.5m)**: 공원 벤치, 자전거, 음료 자판기, 미니 자동차
-  - **Tier 4 (Large: 3.0m ~ 6.0m)**: 벚꽃 나무, 기념 동상
-  - **Tier 5 (Huge: > 7.0m)**: 도시 타워 빌딩
-- **동적 카메라 줌**: 공이 거대해질수록 카메라가 자연스럽게 줌아웃되어 스케일감과 속도감 극대화.
+### 1. 🏙️ 고속 롤링 괴혼 & 인터랙티브 도시 가젯
+- **2.5배 빨라진 롤링 속도 & 즉각적 핸들링**: 굼뜨지 않고 시원시원한 가속감.
+- **점프(Jump) & 대시 부스트(Dash Boost)**: 턱을 뛰어넘고 고속으로 질주!
+- **도시 인터랙티브 가젯 (City Gadgets)**:
+  - ⚡ **네온 가속 패드 (Boost Pad)**: 밟으면 50m/s 속도로 부스터 폭발!
+  - 🦘 **슈퍼 트램펄린 (Trampoline)**: 옥상/고가도로로 높이 솟구치는 점프대!
+  - 💥 **파괴 가능한 벽/울타리 (Destructible Wall)**: 시속 50km 이상 또는 거대화 시 박살 내는 파괴 쾌감!
+  - 🧲 **초자석 파워업 (Super Magnet)**: 25m 반경의 소품을 자석처럼 한 번에 끌어당김!
+  - 🌉 **입체 고가도로 & 경사로(Ramps)** 및 중앙 광장 분수대.
+- **30종 이상의 다양한 3D 소품 카탈로그**:
+  - 도넛, 버거, 피자, 볼링 핀, 스케이트보드, 오락기, 오토바이, 경찰차, 풍차, 대관람차 등.
 
-### 2. 🧪 와뿌볼 촉감 스튜디오 & 절차적 ASMR (Tactile ASMR Studio)
-- **100% 절차적 Web Audio ASMR 신디사이저**:
-  - 외부 음원 파일 로딩 없이 브라우저 Web Audio API로 실시간 음향 합성 (무한한 피치/질감 변화).
-  - 💧 **말랑 젤리 스퀴시 (Squish)**: 저역 공명 스퀠치 + 쫀득한 물방울 방출음
-  - 💥 **단단한 외피 스냅 (Crack)**: 바삭하게 부서지는 껍질 파열음
-  - 🍬 **슈가 크런치 (Crunch)**: 고주파 미세 파쇄음
-  - 🗡️ **매끄러운 슬라이스 (Slice)**: 칼로 표면을 벨 때의 서걱거리는 쾌감 사운드
-  - 🎈 **버블 팝 (Pop)**: 풍선 터짐 주파수 급락 + 서브 베이스 타격음
-  - 🚜 **지면 롤링 럼블 (Roll Rumble)**: 굴러가는 속도에 실시간 반응하는 저음 진동음
-- **정점 스프링-감퍼 물리 젤리 변형 (Deformable Spring Mesh)**:
-  - 찌르기(Poke), 쭉 늘리기(Stretch), 칼로 긋기(Slice), 껍질 깨기(Crack), 팡 터뜨리기(Pop) 지원.
-  - 속에 흡수된 아이템들이 투명 젤리 내부에 부유하는 디테일한 비주얼.
+### 2. 🧪 와뿌볼 만들기 (DIY ASMR Maker)
+- **속재료 채우기 (Custom Fillings)**:
+  - 🤹 **워터비즈 / 개구리알 (Orbeez)**: 찌를 때마다 톡톡 터지는 알갱이 쾌감
+  - 🍿 **스티로폼 폼폼이 (Floam)**: 바삭바삭 자글거리는 크런치 ASMR
+  - 🍯 **쫀득 슬라임 (Slime)**: 꾸덕하고 찰진 물방울 쫍쫍 사운드
+  - ✨ **오로라 글리터 & 스팽글**: 빛을 받아 반짝이는 영롱한 비주얼
+  - 🧁 **키네틱 슈가 샌드 (Sugar Sand)**: 서걱서걱 씹히는 모래 점토 사운드
+- **외피 선택 (Shells)**:
+  - 투명 실리콘, 무지개 테이프 층, 바삭 구운 점토(달걀 껍질처럼 깨짐), 도트 엠보싱.
 
-### 3. 🎨 커스터마이징 & 셰이더 (Customizer & Shaders)
-- **6가지 촉감 셰이더 프리셋**:
-  1. **실리콘 스퀴시 (Silicone)**: 부드럽고 매끄러운 파스텔 소프트터치
-  2. **투명 젤리 (Clear Jelly)**: 굴절/투과율을 살려 내부 흡수물이 비치는 영롱한 투명 질감
-  3. **슈가 크런치 (Sugar Crunch)**: 설탕 결정 범프 텍스처
-  4. **무지개 테이프볼 (Tape Ball)**: 겹겹이 말아 올린 무지개 줄무늬
-  5. **글리터 스파클 (Glitter)**: 빛을 받아 반짝이는 펄 메탈릭 질감
-  6. **사이버 네온 (Cyber Neon)**: 발광하는 일렉트릭 펄스
-- **10색 팔레트 & 나만의 와뿌볼 도감(Collection) 저장**:
-  - 생성한 와뿌볼을 이름, 최대 직경, 흡수 아이템 수와 함께 로컬 저장소에 저장 및 즉시 교체.
+### 3. 💥 와뿌볼 뿌시기 (Smash & Destruction Studio)
+- 🔨 **슈퍼 해머 (Hammer Smash)**: 화면 흔들림과 함께 쾅! 내리쳐 산산조각 깨뜨리기.
+- ⚡ **유압 프레스 (Hydraulic Crush)**: 거대 피스톤으로 팬케이크처럼 납작하게 짓눌러 액체/알갱이 분출.
+- 🧇 **와이어 커터 (Wire Grid Shred)**: 깍두기 모양으로 뿜어져 나오는 격자형 절단.
+- 💥 **메가 팝 (Mega Pop)**: 파티클과 컨페티가 사방으로 대폭발한 뒤 탱글하게 리셋.
 
-### 4. 🔄 커스텀 공으로 도시 재출격 루프
-- 스튜디오에서 꾸민 공의 색상, 셰이더 재질, 크기를 그대로 간직한 채 다시 도시에 출격하여 더 큰 물체를 삼키러 나아갈 수 있습니다!
+### 4. 🎨 커스터마이징 & 나만의 도감
+- 6종 촉감 셰이더(실리콘, 투명 젤리, 슈가 크런치, 테이프볼, 글리터, 네온) + 컬러 팔레트.
+- 만든 와뿌볼을 이름과 함께 로컬 저장소에 저장하고 언제든 꺼내 쓸 수 있는 보관함.
+- 커스텀 공을 그대로 들고 다시 도시에 출격하여 거대화시키는 루프!
 
 ---
 
 ## 🕹️ 조작법 (Controls)
 
-| 모드 | 조작키 | 설명 |
-|---|---|---|
-| **도시 롤링** | `W`, `A`, `S`, `D` 또는 `방향키` | 와뿌볼 굴리기 및 이동 |
-| **도시 롤링 (모바일)** | 화면 터치 & 드래그 | 가상 아날로그 조이스틱 조작 |
-| **스튜디오 모드** | 마우스 클릭 / 터치 | 선택된 도구(찌르기, 늘리기, 쪼개기 등)로 와뿌볼 가지고 놀기 |
-| **모드 전환** | 우측 상단 버튼 | 도시 롤링 ↔ 와뿌볼 스튜디오 자유 전환 |
+| 모드 | 조작키 | 모바일 터치 | 설명 |
+|---|---|---|---|
+| **도시 롤링** | `W`, `A`, `S`, `D` / `방향키` | 화면 드래그 조이스틱 | 와뿌볼 고속 굴리기 |
+| **점프** | `Space` | 우측 하단 `🦘 점프` 버튼 | 높이 점프하여 장애물 넘기 |
+| **부스트 대시** | `Shift` 또는 `J` | 우측 하단 `🚀 부스트` 버튼 | 순간적인 2배 초고속 질주 |
+| **스튜디오 도구** | 마우스 클릭 & 드래그 | 화면 터치 & 드래그 | 찌르기, 늘리기, 슬라이스, 크런치 |
+| **뿌시기 도구** | 좌측 툴바 클릭 | 툴바 터치 | 🔨해머, ⚡유압 프레스, 🧇와이어 절단, 💥팝 |
+| **DIY 만들기** | 우측 패널 클릭 | 패널 터치 | 속재료(개구리알/폼폼이/슬라임) & 외피 조합 |
 
 ---
 
@@ -73,54 +80,17 @@
 git clone https://github.com/Perfect-Yanus/wafu.git
 cd wafu
 
-# 의존성 패키지 설치
+# 패키지 설치
 npm install
 
 # 로컬 개발 서버 실행
 npm run dev
 
-# 단위 테스트 실행
+# 테스트 실행 (35개 테스트 전원 통과)
 npm test
 
 # 프로덕션 빌드
 npm run build
-```
-
----
-
-## 📁 프로젝트 구조 (Architecture)
-
-```
-wafu/
-├── index.html                   # 메인 HTML 및 뷰포트
-├── package.json                 # 프로젝트 스크립트 및 의존성
-├── tsconfig.json                # TypeScript 엄격 설정
-├── vite.config.ts               # Vite & Vitest 설정
-├── src/
-│   ├── main.ts                  # 메인 엔트리포인트
-│   ├── game.ts                  # 마스터 게임 씬 & 렌더링 루프
-│   ├── style.css                # 글래스모피즘 UI 스타일
-│   ├── audio/
-│   │   └── AsmrAudioEngine.ts   # 100% 절차적 Web Audio ASMR 신디사이저
-│   ├── physics/
-│   │   ├── RollingBall.ts       # 괴혼 롤링 물리 & 동적 부착 성장
-│   │   └── AbsorbableItem.ts    # 흡수 가능한 도시 물체 정의
-│   ├── world/
-│   │   ├── CityWorld.ts         # 도시 환경, 조명, 도로망, 충돌 감지
-│   │   └── ItemCatalog.ts       # 5개 티어 15종의 절차적 3D 소품 생성기
-│   ├── studio/
-│   │   ├── SquishyBallStudio.ts # ASMR 와뿌볼 샌드박스 턴테이블 스튜디오
-│   │   └── DeformableMesh.ts    # 스프링-감퍼 정점 젤리 변형 물리
-│   ├── customizer/
-│   │   ├── Materials.ts         # 젤리/글리터/테이프볼 등 셰이더 프리셋
-│   │   ├── CollectionManager.ts # 와뿌볼 도감 로컬스토리지 보관함
-│   │   └── BallCustomizer.ts    # 색상/재질/도감 조정 코디네이터
-│   ├── state/
-│   │   └── GameState.ts         # 도시 <-> 스튜디오 상태 머신
-│   └── ui/
-│       ├── UIManager.ts         # 글래스모피즘 HUD 및 도구 패널 UI
-│       └── TouchJoystick.ts     # 모바일용 가상 아날로그 스틱
-└── tests/                       # Vitest 단위/통합 테스트 스위트 (24개 테스트)
 ```
 
 ---
