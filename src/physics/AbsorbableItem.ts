@@ -19,6 +19,8 @@ export class AbsorbableItem {
   public readonly mass: number;
   public readonly pointValue: number;
   public readonly mesh: THREE.Object3D;
+  public surfaceNormal?: THREE.Vector3;
+  public surfaceOffset?: number;
   private absorbed: boolean = false;
 
   constructor(config: AbsorbableItemConfig) {

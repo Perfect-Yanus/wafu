@@ -31,7 +31,12 @@ export type ItemType =
   | 'busstop'
   | 'windmill'
   | 'building'
-  | 'ferriswheel';
+  | 'ferriswheel'
+  | 'convenience_store'
+  | 'brick_house'
+  | 'apartment_block'
+  | 'skyscraper'
+  | 'cozy_cafe';
 
 interface ItemTemplate {
   type: ItemType;
@@ -653,6 +658,204 @@ export class ItemCatalog {
         support2.position.set(2.0, 4.0, 0);
 
         group.add(wheel, support1, support2);
+        return group;
+      },
+    });
+
+    // ---------------- REALISTIC BUILDINGS ----------------
+    this.templates.set('cozy_cafe', {
+      type: 'cozy_cafe',
+      name: '브런치 카페 (Cozy Cafe)',
+      tier: 3,
+      radius: 2.2,
+      mass: 16.0,
+      builder: () => {
+        const group = new THREE.Group();
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0xffedd8, roughness: 0.7 });
+        const roofMat = new THREE.MeshStandardMaterial({ color: 0x9c6644, roughness: 0.6 });
+
+        const body = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.4, 2.8), wallMat);
+        body.position.y = 1.2;
+
+        const roof = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.25, 3.1), roofMat);
+        roof.position.y = 2.5;
+
+        // Striped awning
+        const awningMat = new THREE.MeshStandardMaterial({ color: 0xe63946, roughness: 0.5 });
+        const awning = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.1, 0.8), awningMat);
+        awning.position.set(0, 1.8, 1.6);
+        awning.rotation.x = 0.25;
+
+        // Patio table & umbrella
+        const umbrella = new THREE.Mesh(new THREE.ConeGeometry(0.8, 0.4, 8), awningMat);
+        umbrella.position.set(1.2, 1.6, 2.0);
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.6), roofMat);
+        pole.position.set(1.2, 0.8, 2.0);
+
+        group.add(body, roof, awning, umbrella, pole);
+        return group;
+      },
+    });
+
+    this.templates.set('convenience_store', {
+      type: 'convenience_store',
+      name: '24시 편의점 (Convenience Store)',
+      tier: 4,
+      radius: 3.4,
+      mass: 32.0,
+      builder: () => {
+        const group = new THREE.Group();
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0xf8f9fa, roughness: 0.5 });
+        const body = new THREE.Mesh(new THREE.BoxGeometry(4.4, 3.0, 3.8), wallMat);
+        body.position.y = 1.5;
+
+        // Glowing Signboard Header
+        const signMat = new THREE.MeshStandardMaterial({ color: 0x06d6a0, emissive: 0x06d6a0, emissiveIntensity: 0.5 });
+        const sign = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.6, 0.3), signMat);
+        sign.position.set(0, 2.8, 1.95);
+
+        // Striped Green/Orange Awning
+        const awningMat = new THREE.MeshStandardMaterial({ color: 0xf77f00, roughness: 0.4 });
+        const awning = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.1, 1.0), awningMat);
+        awning.position.set(0, 2.2, 2.2);
+        awning.rotation.x = 0.2;
+
+        // Glass Front Windows
+        const glassMat = new THREE.MeshStandardMaterial({ color: 0x48cae4, roughness: 0.1, metalness: 0.8 });
+        const glass = new THREE.Mesh(new THREE.BoxGeometry(3.6, 1.8, 0.1), glassMat);
+        glass.position.set(0, 1.2, 1.92);
+
+        group.add(body, sign, awning, glass);
+        return group;
+      },
+    });
+
+    this.templates.set('brick_house', {
+      type: 'brick_house',
+      name: '클래식 벽돌 주택 (Brick House)',
+      tier: 4,
+      radius: 3.6,
+      mass: 38.0,
+      builder: () => {
+        const group = new THREE.Group();
+        const brickMat = new THREE.MeshStandardMaterial({ color: 0x9d0208, roughness: 0.8 });
+        const roofMat = new THREE.MeshStandardMaterial({ color: 0x3d405b, roughness: 0.6 });
+
+        // House Body
+        const body = new THREE.Mesh(new THREE.BoxGeometry(4.0, 2.8, 3.6), brickMat);
+        body.position.y = 1.4;
+
+        // Pitched Gabled Roof (Prism / Pyramid)
+        const roof = new THREE.Mesh(new THREE.ConeGeometry(3.2, 1.8, 4), roofMat);
+        roof.rotation.y = Math.PI / 4;
+        roof.position.y = 3.6;
+
+        // Chimney
+        const chimney = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.2, 0.5), brickMat);
+        chimney.position.set(1.2, 3.8, 0.6);
+
+        // Door & Windows
+        const woodMat = new THREE.MeshStandardMaterial({ color: 0x6f4e37 });
+        const door = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.6, 0.1), woodMat);
+        door.position.set(0, 0.8, 1.85);
+
+        const winMat = new THREE.MeshStandardMaterial({ color: 0xffea00, emissive: 0xffea00, emissiveIntensity: 0.4 });
+        const win1 = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.08), winMat);
+        win1.position.set(-1.2, 1.6, 1.85);
+        const win2 = win1.clone();
+        win2.position.set(1.2, 1.6, 1.85);
+
+        group.add(body, roof, chimney, door, win1, win2);
+        return group;
+      },
+    });
+
+    this.templates.set('apartment_block', {
+      type: 'apartment_block',
+      name: '시티 아파트 타운 (Apartment Block)',
+      tier: 5,
+      radius: 6.8,
+      mass: 90.0,
+      builder: () => {
+        const group = new THREE.Group();
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0xced4da, roughness: 0.6 });
+        const body = new THREE.Mesh(new THREE.BoxGeometry(5.6, 8.4, 5.0), wallMat);
+        body.position.y = 4.2;
+        group.add(body);
+
+        // Balconies and illuminated windows on 3 tiers
+        const winMat = new THREE.MeshStandardMaterial({ color: 0xffd166, emissive: 0xffaa00, emissiveIntensity: 0.5 });
+        const balconyMat = new THREE.MeshStandardMaterial({ color: 0x495057 });
+
+        for (let floor = 0; floor < 3; floor++) {
+          const y = 2.0 + floor * 2.4;
+          for (let col = -1.6; col <= 1.6; col += 1.6) {
+            const win = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.2, 0.1), winMat);
+            win.position.set(col, y, 2.52);
+
+            const balcony = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.4, 0.6), balconyMat);
+            balcony.position.set(col, y - 0.5, 2.75);
+
+            group.add(win, balcony);
+          }
+        }
+
+        // Rooftop Water Tank
+        const tankMat = new THREE.MeshStandardMaterial({ color: 0x6c757d, metalness: 0.6 });
+        const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 1.4, 12), tankMat);
+        tank.position.set(1.4, 9.1, 1.2);
+        group.add(tank);
+
+        return group;
+      },
+    });
+
+    this.templates.set('skyscraper', {
+      type: 'skyscraper',
+      name: '초고층 스카이라인 타워 (Skyscraper)',
+      tier: 5,
+      radius: 9.8,
+      mass: 220.0,
+      builder: () => {
+        const group = new THREE.Group();
+        const glassMat = new THREE.MeshStandardMaterial({
+          color: 0x1d3557,
+          metalness: 0.9,
+          roughness: 0.15,
+        });
+
+        const tower = new THREE.Mesh(new THREE.BoxGeometry(7.0, 18.0, 7.0), glassMat);
+        tower.position.y = 9.0;
+        group.add(tower);
+
+        // Lit Window Bands
+        const gridMat = new THREE.MeshStandardMaterial({
+          color: 0x00f5d4,
+          emissive: 0x00f5d4,
+          emissiveIntensity: 0.6,
+        });
+
+        for (let y = 3; y <= 16; y += 2.5) {
+          const band = new THREE.Mesh(new THREE.BoxGeometry(7.1, 0.4, 7.1), gridMat);
+          band.position.y = y;
+          group.add(band);
+        }
+
+        // Rooftop Antenna Mast with Beacon Light
+        const metalMat = new THREE.MeshStandardMaterial({ color: 0xadb5bd, metalness: 0.8 });
+        const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.25, 4.0, 8), metalMat);
+        mast.position.y = 20.0;
+
+        const beaconMat = new THREE.MeshStandardMaterial({ color: 0xff0054, emissive: 0xff0054, emissiveIntensity: 1.0 });
+        const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), beaconMat);
+        beacon.position.y = 22.0;
+
+        // Helipad Circle
+        const padMat = new THREE.MeshStandardMaterial({ color: 0xf1faee, roughness: 0.8 });
+        const pad = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.0, 0.1, 16), padMat);
+        pad.position.y = 18.05;
+
+        group.add(mast, beacon, pad);
         return group;
       },
     });

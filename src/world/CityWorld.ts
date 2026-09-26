@@ -4,6 +4,8 @@ import { ItemCatalog } from './ItemCatalog';
 import { RollingBall } from '../physics/RollingBall';
 import { BoostPad, Trampoline, DestructibleWall, SuperMagnetGadget } from './CityGadgets';
 import { Hazard, CactusHazard, SpikeTrapHazard, SawbladeHazard, TimeBonusItem } from './Hazards';
+import { STAGES, StageConfig, DimensionPortal } from './StageManager';
+import { LivingCharacter } from './Characters';
 
 export interface CityWorldConfig {
   itemCount?: number;
@@ -18,6 +20,13 @@ export class CityWorld {
   private citySize: number;
   private groundGroup: THREE.Group;
 
+  // Stage & Portal
+  public currentStage: StageConfig = STAGES[0];
+  public portal: DimensionPortal | null = null;
+
+  // Living Animated Characters
+  public readonly characters: LivingCharacter[] = [];
+
   // Interactive Gadgets
   public readonly boostPads: BoostPad[] = [];
   public readonly trampolines: Trampoline[] = [];
@@ -31,6 +40,8 @@ export class CityWorld {
   // Event Callbacks
   public onTimeBonusCollected?: (bonusSeconds: number) => void;
   public onBallShrunk?: (hazardType: string) => void;
+  public onPortalEntered?: () => void;
+  public onPortalBlocked?: (requiredCm: number) => void;
 
   constructor(scene: THREE.Scene, config: CityWorldConfig = {}) {
     this.scene = scene;
@@ -43,6 +54,7 @@ export class CityWorld {
     this.createLighting();
     this.spawnGadgets();
     this.spawnHazardsAndBonuses();
+    this.spawnCharacters(24);
     this.populateCity(config.itemCount ?? 260);
   }
 
@@ -287,6 +299,54 @@ export class CityWorld {
     });
   }
 
+  public spawnCharacters(count: number = 24): void {
+    for (const c of this.characters) {
+      this.scene.remove(c.mesh);
+    }
+    this.characters.length = 0;
+
+    const types: ('human' | 'cat' | 'dog' | 'cyclist' | 'car')[] = ['human', 'cat', 'dog', 'cyclist', 'car'];
+    for (let i = 0; i < count; i++) {
+      const type = types[i % types.length];
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 10 + Math.random() * (this.citySize - 35);
+      const pos = new THREE.Vector3(Math.cos(angle) * dist, 0, Math.sin(angle) * dist);
+
+      const char = new LivingCharacter(type, `${i}`, pos);
+      this.characters.push(char);
+      this.addItem(char.item);
+    }
+  }
+
+  public loadStage(stage: StageConfig, itemCount: number = 260): void {
+    this.currentStage = stage;
+
+    // Portal cleanup & spawn
+    if (this.portal) {
+      this.scene.remove(this.portal.mesh);
+      this.portal = null;
+    }
+    if (stage.hasPortalExit) {
+      this.portal = new DimensionPortal(new THREE.Vector3(60, 0, 60));
+      this.scene.add(this.portal.mesh);
+    }
+
+    // Refresh hazards & bonuses
+    for (const hz of this.hazards) {
+      this.scene.remove(hz.mesh);
+    }
+    this.hazards.length = 0;
+
+    for (const tb of this.timeBonuses) {
+      this.scene.remove(tb.mesh);
+    }
+    this.timeBonuses.length = 0;
+
+    this.spawnHazardsAndBonuses();
+    this.spawnCharacters(stage.isPlanetSphere ? 16 : 28);
+    this.populateCity(itemCount);
+  }
+
   public populateCity(count: number = 260): void {
     for (const item of this.items) {
       this.scene.remove(item.mesh);
@@ -336,25 +396,42 @@ export class CityWorld {
     const ballRadius = ball.getRadius();
     const checkRadius = ballRadius + 12.0;
 
-    // 1. Update & check Boost Pads
+    // 1. Update Living Characters (wandering, panicking, animated limbs)
+    for (const char of this.characters) {
+      char.update(dt, ballPos, ballRadius);
+    }
+
+    // 2. Check Portal Exit (Stage 2)
+    if (this.portal) {
+      this.portal.update(dt);
+      if (this.portal.checkEntry(ballPos, ballRadius)) {
+        if (ballRadius * 200 >= this.currentStage.targetDiameterCm) {
+          this.onPortalEntered?.();
+        } else {
+          this.onPortalBlocked?.(this.currentStage.targetDiameterCm);
+        }
+      }
+    }
+
+    // 3. Update & check Boost Pads
     for (const pad of this.boostPads) {
       pad.update(dt);
       pad.checkInteraction(ball);
     }
 
-    // 2. Update & check Trampolines
+    // 4. Update & check Trampolines
     for (const tr of this.trampolines) {
       tr.update(dt);
       tr.checkInteraction(ball);
     }
 
-    // 3. Update & check Destructible Walls
+    // 5. Update & check Destructible Walls
     for (const wall of this.destructibleWalls) {
       wall.update(dt);
       wall.checkCollision(ball);
     }
 
-    // 4. Check & update Super Magnets
+    // 6. Check & update Super Magnets
     for (const mag of this.superMagnets) {
       if (!mag.isActive()) {
         const dx = ballPos.x - mag.position.x;
@@ -367,7 +444,7 @@ export class CityWorld {
       mag.update(dt, ball, this.items);
     }
 
-    // 5. Check Hazards (Cactus, Spike Traps, Sawblades)
+    // 7. Check Hazards (Cactus, Spike Traps, Sawblades)
     for (const hz of this.hazards) {
       hz.update(dt);
       const hit = hz.checkCollision(ball);
@@ -376,7 +453,7 @@ export class CityWorld {
       }
     }
 
-    // 6. Check Time Bonus Pickups (+15s Clocks)
+    // 8. Check Time Bonus Pickups (+15s Clocks)
     for (const tb of this.timeBonuses) {
       tb.update(dt);
       if (tb.checkCollection(ball)) {
@@ -384,7 +461,7 @@ export class CityWorld {
       }
     }
 
-    // 7. Absorbable items collision
+    // 9. Absorbable items collision
     for (let i = this.items.length - 1; i >= 0; i--) {
       const item = this.items[i];
       if (item.isAbsorbed()) {
@@ -410,6 +487,14 @@ export class CityWorld {
           if (absorbed) {
             this.items.splice(i, 1);
             this.absorbedCount++;
+
+            // Trigger character reaction if this was a living character
+            for (const char of this.characters) {
+              if (char.item === item) {
+                char.triggerAbsorbReaction();
+                break;
+              }
+            }
           }
         } else {
           const overlap = combinedRadius - dist;
@@ -451,18 +536,6 @@ export class CityWorld {
   }
 
   public reset(itemCount: number = 260): void {
-    // Remove existing hazard and bonus meshes
-    for (const hz of this.hazards) {
-      this.scene.remove(hz.mesh);
-    }
-    this.hazards.length = 0;
-
-    for (const tb of this.timeBonuses) {
-      this.scene.remove(tb.mesh);
-    }
-    this.timeBonuses.length = 0;
-
-    this.spawnHazardsAndBonuses();
-    this.populateCity(itemCount);
+    this.loadStage(this.currentStage, itemCount);
   }
 }

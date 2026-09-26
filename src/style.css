@@ -216,8 +216,8 @@ html, body {
 /* Floating Action Buttons for City (Jump & Boost) */
 .city-action-buttons {
   position: absolute;
-  right: 24px;
-  bottom: 80px;
+  right: 20px;
+  bottom: 76px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -225,14 +225,14 @@ html, body {
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
-  z-index: 10;
+  z-index: 50;
 }
 
 .btn-action {
-  width: 72px;
-  height: 72px;
+  width: 78px;
+  height: 78px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.25);
+  border: 2px solid rgba(255, 255, 255, 0.35);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   color: white;
@@ -728,4 +728,180 @@ html, body {
     opacity: 1;
   }
 }
+
+/* Stage Badge in Top HUD */
+.stage-badge {
+  background: linear-gradient(135deg, rgba(255, 107, 139, 0.25), rgba(0, 229, 255, 0.2)) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Portal Active Badge in Top HUD */
+.portal-active-badge {
+  border-color: var(--accent-cyan) !important;
+  background: rgba(0, 245, 212, 0.2) !important;
+  animation: portalPulse 0.8s infinite alternate ease-in-out;
+}
+
+@keyframes portalPulse {
+  from {
+    box-shadow: 0 0 6px rgba(0, 245, 212, 0.4);
+    transform: scale(1);
+  }
+  to {
+    box-shadow: 0 0 20px rgba(0, 245, 212, 0.9);
+    transform: scale(1.06);
+  }
+}
+
+/* Touch Camera Tip Badge in Top HUD */
+.camera-tip-badge {
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Briefing Modal Content */
+.briefing-modal-content {
+  width: 92%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 24px 22px;
+  text-align: center;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 24px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8);
+  animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Stage Tabs Selector */
+.stage-tabs-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.stage-tab-btn {
+  padding: 8px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.stage-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.stage-tab-btn.active {
+  background: linear-gradient(135deg, rgba(255, 107, 139, 0.35), rgba(0, 229, 255, 0.35));
+  border-color: #fff;
+  color: #fff;
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.4);
+}
+
+/* Briefing Info Grid */
+.briefing-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.info-card {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.info-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.info-val {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+/* Hazard Warning Box */
+.hazard-warning-box {
+  background: rgba(255, 183, 3, 0.12);
+  border: 1px solid rgba(255, 183, 3, 0.35);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #ffd166;
+  text-align: left;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+/* Controls Guide Box */
+.controls-guide-box {
+  background: rgba(0, 229, 255, 0.08);
+  border: 1px solid rgba(0, 229, 255, 0.25);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #e0f2fe;
+  text-align: left;
+}
+
+/* Start Button */
+.btn-start-game {
+  width: 100%;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  box-shadow: 0 6px 20px rgba(255, 77, 136, 0.5);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-start-game:active {
+  transform: scale(0.97);
+}
+
+/* Big Smash Climax Button */
+.btn-smash-highlight {
+  background: linear-gradient(135deg, #ff0055, #ff5500) !important;
+  box-shadow: 0 8px 30px rgba(255, 0, 85, 0.6) !important;
+  font-size: 16px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.5px;
+  animation: smashPulse 1.2s infinite alternate ease-in-out;
+}
+
+@keyframes smashPulse {
+  from {
+    transform: scale(1);
+    box-shadow: 0 8px 25px rgba(255, 0, 85, 0.6);
+  }
+  to {
+    transform: scale(1.03);
+    box-shadow: 0 12px 35px rgba(255, 85, 0, 0.85);
+  }
+}
+
 

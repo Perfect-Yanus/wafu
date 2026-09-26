@@ -11,6 +11,9 @@ export interface GameStats {
   targetDiameterCm: number;
   isGameOver: boolean;
   isVictory: boolean;
+  stageIndex: number;
+  stageBriefingActive: boolean;
+  portalUnlocked: boolean;
 }
 
 export type ModeChangeListener = (mode: GameMode) => void;
@@ -25,10 +28,13 @@ export class GameState {
     totalCityItems: 180,
     currentTier: 1,
     challengeMode: true,
-    timeRemaining: 150.0, // 2m 30s challenge
-    targetDiameterCm: 250.0, // Target diameter: 250cm
+    timeRemaining: 120.0,
+    targetDiameterCm: 120.0,
     isGameOver: false,
     isVictory: false,
+    stageIndex: 0,
+    stageBriefingActive: true,
+    portalUnlocked: false,
   };
 
   private modeListeners: Set<ModeChangeListener> = new Set();
@@ -88,18 +94,48 @@ export class GameState {
     this.stats.timeRemaining = timeSec;
     this.stats.isGameOver = false;
     this.stats.isVictory = false;
+    this.stats.stageBriefingActive = false;
     this.notifyStats();
   }
 
-  public tickTimer(dt: number): void {
-    if (!this.stats.challengeMode || this.mode !== 'CITY') return;
+  public setStage(stageIndex: number, targetCm: number, timeSec: number): void {
+    this.stats.stageIndex = stageIndex;
+    this.stats.targetDiameterCm = targetCm;
+    this.stats.timeRemaining = timeSec;
+    this.stats.stageBriefingActive = true;
+    this.stats.isGameOver = false;
+    this.stats.isVictory = false;
+    this.stats.portalUnlocked = false;
+    this.notifyStats();
+  }
+
+  public closeBriefing(): void {
+    this.stats.stageBriefingActive = false;
+    this.notifyStats();
+  }
+
+  public openBriefing(): void {
+    this.stats.stageBriefingActive = true;
+    this.notifyStats();
+  }
+
+  public triggerVictory(): void {
+    this.stats.isVictory = true;
+    this.notifyStats();
+  }
+
+  public tickTimer(dt: number, requirePortal: boolean = false): void {
+    if (!this.stats.challengeMode || this.mode !== 'CITY' || this.stats.stageBriefingActive) return;
     if (this.stats.isGameOver || this.stats.isVictory) return;
 
-    // Check Victory condition
+    // Check size goal
     if (this.stats.currentDiameterCm >= this.stats.targetDiameterCm) {
-      this.stats.isVictory = true;
-      this.notifyStats();
-      return;
+      this.stats.portalUnlocked = true;
+      if (!requirePortal) {
+        this.stats.isVictory = true;
+        this.notifyStats();
+        return;
+      }
     }
 
     // Countdown time

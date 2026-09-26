@@ -660,6 +660,221 @@ export class AsmrAudioEngine {
     osc.start(t);
     osc.stop(t + 0.15);
   }
+
+  /**
+   * 17. CHARACTER REACTION SOUNDS (괴혼 스타일 캐릭터 흡수 리액션 음성/효과음)
+   */
+  public playCharacterReaction(type: 'human' | 'cat' | 'dog' | 'car' | string): void {
+    if (!this.ctx || !this.masterGain || this.muted) return;
+    const t = this.ctx.currentTime;
+
+    if (type === 'cat') {
+      // 야옹~ (Cute kitten meow: 620Hz -> 880Hz -> 540Hz)
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(620, t);
+      osc.frequency.exponentialRampToValueAtTime(880, t + 0.12);
+      osc.frequency.exponentialRampToValueAtTime(540, t + 0.28);
+
+      gain.gain.setValueAtTime(0.3, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(t);
+      osc.stop(t + 0.32);
+    } else if (type === 'dog') {
+      // 멍멍! (Double perky bark)
+      [0, 0.09].forEach((delay) => {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(320, t + delay);
+        osc.frequency.exponentialRampToValueAtTime(140, t + delay + 0.07);
+
+        gain.gain.setValueAtTime(0.28, t + delay);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + delay + 0.08);
+
+        osc.connect(gain);
+        gain.connect(this.masterGain!);
+        osc.start(t + delay);
+        osc.stop(t + delay + 0.09);
+      });
+    } else if (type === 'car') {
+      // 빵빵! (Dual-tone cheerful cartoon horn)
+      [0, 0.12].forEach((delay) => {
+        [440, 554.37].forEach((freq) => {
+          const osc = this.ctx!.createOscillator();
+          const gain = this.ctx!.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq, t + delay);
+
+          gain.gain.setValueAtTime(0.18, t + delay);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + delay + 0.09);
+
+          osc.connect(gain);
+          gain.connect(this.masterGain!);
+          osc.start(t + delay);
+          osc.stop(t + delay + 0.1);
+        });
+      });
+    } else {
+      // 사람: "와아아~!" (Funny high-pitched Katamari citizen squeak)
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(520, t);
+      osc.frequency.exponentialRampToValueAtTime(1100, t + 0.14);
+      osc.frequency.exponentialRampToValueAtTime(750, t + 0.28);
+
+      gain.gain.setValueAtTime(0.35, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(t);
+      osc.stop(t + 0.32);
+    }
+  }
+
+  /**
+   * 18. PORTAL ENTER ASMR (차원 탈출 포털 진입 워프 효과음)
+   */
+  public playPortalEnter(): void {
+    if (!this.ctx || !this.masterGain || this.muted) return;
+    const t = this.ctx.currentTime;
+    const freqs = [300, 450, 600, 900, 1200, 1800, 2400];
+
+    freqs.forEach((freq, idx) => {
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t + idx * 0.04);
+
+      gain.gain.setValueAtTime(0.25, t + idx * 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.04 + 0.4);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain!);
+      osc.start(t + idx * 0.04);
+      osc.stop(t + idx * 0.04 + 0.45);
+    });
+
+    this.playPop();
+  }
+
+  // ---------------- PROCEDURAL UPBEAT KATAMARI BGM ----------------
+  private bgmPlaying: boolean = false;
+  private bgmTimer: number | null = null;
+  private bgmStep: number = 0;
+  private bgmGainNode: GainNode | null = null;
+
+  public startBgm(): void {
+    if (this.bgmPlaying || !this.ctx) return;
+    this.bgmPlaying = true;
+
+    if (!this.bgmGainNode) {
+      this.bgmGainNode = this.ctx.createGain();
+      this.bgmGainNode.gain.setValueAtTime(0.18, this.ctx.currentTime);
+      this.bgmGainNode.connect(this.masterGain ?? this.ctx.destination);
+    }
+
+    const stepIntervalMs = 120; // ~125 BPM 16th notes
+    let nextNoteTime = this.ctx.currentTime + 0.05;
+
+    // 4-Bar Chord Progression: F -> Dm -> Gm -> C7
+    const bassline = [
+      174.61, 0, 174.61, 220.0, 261.63, 0, 220.0, 174.61, // Bar 1: F
+      146.83, 0, 146.83, 174.61, 220.0, 0, 174.61, 146.83, // Bar 2: Dm
+      196.0, 0, 196.0, 233.08, 293.66, 0, 233.08, 196.0,  // Bar 3: Gm
+      130.81, 0, 164.81, 196.0, 233.08, 0, 196.0, 164.81, // Bar 4: C7
+    ];
+
+    const melodyNotes = [
+      523.25, 659.25, 783.99, 0, 659.25, 783.99, 1046.5, 0,
+      880.0, 0, 783.99, 659.25, 587.33, 0, 523.25, 0,
+      587.33, 698.46, 880.0, 0, 698.46, 880.0, 1174.66, 0,
+      1046.5, 0, 880.0, 783.99, 659.25, 587.33, 523.25, 0,
+    ];
+
+    this.bgmTimer = window.setInterval(() => {
+      if (!this.bgmPlaying || !this.ctx || !this.bgmGainNode) return;
+
+      while (nextNoteTime < this.ctx.currentTime + 0.25) {
+        const step = this.bgmStep % 32;
+
+        // 1. Synth Bass Note
+        const bassFreq = bassline[step];
+        if (bassFreq > 0) {
+          const osc = this.ctx.createOscillator();
+          const g = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(bassFreq, nextNoteTime);
+
+          g.gain.setValueAtTime(0.35, nextNoteTime);
+          g.gain.exponentialRampToValueAtTime(0.001, nextNoteTime + 0.18);
+
+          osc.connect(g);
+          g.connect(this.bgmGainNode);
+          osc.start(nextNoteTime);
+          osc.stop(nextNoteTime + 0.2);
+        }
+
+        // 2. Playful Lead Melody
+        const melFreq = melodyNotes[step];
+        if (melFreq > 0 && step % 2 === 0) {
+          const osc = this.ctx.createOscillator();
+          const g = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(melFreq, nextNoteTime);
+
+          g.gain.setValueAtTime(0.2, nextNoteTime);
+          g.gain.exponentialRampToValueAtTime(0.001, nextNoteTime + 0.16);
+
+          osc.connect(g);
+          g.connect(this.bgmGainNode);
+          osc.start(nextNoteTime);
+          osc.stop(nextNoteTime + 0.18);
+        }
+
+        // 3. Shaker / Hi-hat percussive tick on off-beats
+        if (step % 2 === 1 && this.whiteNoiseBuffer) {
+          const noise = this.ctx.createBufferSource();
+          noise.buffer = this.whiteNoiseBuffer;
+
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = 'highpass';
+          filter.frequency.setValueAtTime(5000, nextNoteTime);
+
+          const ng = this.ctx.createGain();
+          ng.gain.setValueAtTime(0.09, nextNoteTime);
+          ng.gain.exponentialRampToValueAtTime(0.001, nextNoteTime + 0.04);
+
+          noise.connect(filter);
+          filter.connect(ng);
+          ng.connect(this.bgmGainNode);
+          noise.start(nextNoteTime);
+          noise.stop(nextNoteTime + 0.05);
+        }
+
+        this.bgmStep++;
+        nextNoteTime += 0.12;
+      }
+    }, stepIntervalMs);
+  }
+
+  public stopBgm(): void {
+    this.bgmPlaying = false;
+    if (this.bgmTimer !== null) {
+      clearInterval(this.bgmTimer);
+      this.bgmTimer = null;
+    }
+  }
+
+  public isBgmPlaying(): boolean {
+    return this.bgmPlaying;
+  }
 }
 
 // Global Singleton

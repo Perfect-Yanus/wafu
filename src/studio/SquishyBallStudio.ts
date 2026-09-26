@@ -13,7 +13,8 @@ export type StudioTool =
   | 'hammer'
   | 'hydraulic'
   | 'wire_cutter'
-  | 'pop';
+  | 'pop'
+  | 'restore';
 
 export class SquishyBallStudio {
   public readonly scene: THREE.Scene;
@@ -119,6 +120,8 @@ export class SquishyBallStudio {
       this.triggerWireCutter();
     } else if (tool === 'pop') {
       this.triggerPop();
+    } else if (tool === 'restore') {
+      this.restoreBall();
     }
   }
 
@@ -366,6 +369,12 @@ export class SquishyBallStudio {
     while (this.sliceLinesGroup.children.length > 0) {
       this.sliceLinesGroup.remove(this.sliceLinesGroup.children[0]);
     }
+  }
+
+  public restoreBall(): void {
+    this.deformableBall.reset();
+    this.clearCracksAndSlices();
+    asmrAudio.playSquish(0.85);
   }
 
   private spawnParticles(origin: THREE.Vector3, count: number, color: number, speedMult: number = 1.0): void {

@@ -25,12 +25,14 @@ export class RollingBall {
 
   // Physics constants - ~10x ultra-high speed and arcade Katamari responsiveness
   private maxSpeed: number = 180.0;
-  private moveForce: number = 950.0;
+  private moveForce: number = 135.0;
   private drag: number = 1.4;
 
   // Jump & vertical physics
   private gravity: number = -36.0;
   private grounded: boolean = true;
+  private coyoteTimer: number = 0;
+  private jumpBufferTimer: number = 0;
 
   // Boost mechanic
   private boostTimer: number = 0;
@@ -115,10 +117,21 @@ export class RollingBall {
   }
 
   public jump(strength: number = 18.0): boolean {
-    if (!this.grounded) return false;
+    if (this.grounded || this.coyoteTimer > 0) {
+      return this.executeJump(strength);
+    } else {
+      // Buffer the jump request so it triggers immediately upon landing
+      this.jumpBufferTimer = 0.22;
+      return false;
+    }
+  }
+
+  private executeJump(strength: number = 18.0): boolean {
     this.velocity.y = strength;
     this.grounded = false;
-    asmrAudio.playSquish(0.8);
+    this.coyoteTimer = 0;
+    this.jumpBufferTimer = 0;
+    asmrAudio.playSquish(0.85);
     return true;
   }
 
@@ -189,7 +202,7 @@ export class RollingBall {
   }
 
   /**
-   * Attempt to absorb an item
+   * Attempt to absorb an item: Katamari surface attachment & radial orientation
    */
   public tryAbsorb(item: AbsorbableItem): boolean {
     if (!this.canAbsorb(item)) return false;
@@ -198,18 +211,43 @@ export class RollingBall {
     this.absorbedItems.push(item);
     this.totalMass += item.mass;
 
-    // Attach item mesh to ball's local absorbed group preserving relative transform
     const itemMesh = item.mesh;
-    this.group.updateMatrixWorld(true);
-    itemMesh.updateMatrixWorld(true);
+    const itemWorldPos = item.getWorldPosition();
+    const ballPos = this.position;
 
-    // Reparent using Three.js attach helper
-    this.absorbedGroup.attach(itemMesh);
+    // Contact normal from ball center to item
+    let normal = itemWorldPos.clone().sub(ballPos);
+    if (normal.lengthSq() < 0.0001) {
+      normal = new THREE.Vector3(
+        (Math.random() - 0.5) * 2,
+        Math.random() * 0.5 + 0.5,
+        (Math.random() - 0.5) * 2
+      ).normalize();
+    } else {
+      normal.normalize();
+    }
 
-    // Calculate growth: Sphere volume V = (4/3) * pi * R^3
-    // New R = cbrt(R^3 + factor * r_item^3)
+    item.surfaceNormal = normal.clone();
+    item.surfaceOffset = item.radius * 0.25;
+
+    // Detach from previous scene and add to absorbedGroup
+    if (itemMesh.parent) {
+      itemMesh.parent.remove(itemMesh);
+    }
+    this.absorbedGroup.add(itemMesh);
+
+    // Position flush on ball surface
+    itemMesh.position.copy(normal).multiplyScalar(this.radius * 0.94 + item.surfaceOffset);
+
+    // Orient mesh radially outward from the sphere center
+    const defaultUp = new THREE.Vector3(0, 1, 0);
+    const alignQuat = new THREE.Quaternion().setFromUnitVectors(defaultUp, normal);
+    const twistQuat = new THREE.Quaternion().setFromAxisAngle(normal, (Math.random() - 0.5) * 0.8);
+    itemMesh.quaternion.copy(twistQuat.multiply(alignQuat));
+
+    // Calculate Katamari growth: Sphere volume V = (4/3) * pi * R^3
     const currentVol = Math.pow(this.targetRadius, 3);
-    const itemVol = Math.pow(item.radius, 3) * 0.75; // Packing factor
+    const itemVol = Math.pow(item.radius, 3) * 0.75;
     this.targetRadius = Math.cbrt(currentVol + itemVol);
 
     // Trigger ASMR chime & squish sound
@@ -221,7 +259,7 @@ export class RollingBall {
   /**
    * Apply directional input (normalized 2D vector in camera space)
    */
-  public applyInput(inputDir: THREE.Vector2, dt: number): void {
+  public applyInput(inputDir: THREE.Vector2, _dt?: number): void {
     if (inputDir.lengthSq() > 0.0001) {
       const massScale = Math.pow(this.totalMass / 5.0, 0.3);
       let accelForce = this.moveForce * massScale;
@@ -236,8 +274,11 @@ export class RollingBall {
         accelForce *= 1.8;
       }
 
-      this.acceleration.x += inputDir.x * accelForce * dt;
-      this.acceleration.z += inputDir.y * accelForce * dt;
+      // Agile mid-air steering so player can steer fluidly while jumping!
+      const airMult = this.grounded ? 1.0 : 1.35;
+
+      this.acceleration.x += inputDir.x * accelForce * airMult;
+      this.acceleration.z += inputDir.y * accelForce * airMult;
     }
   }
 
@@ -265,6 +306,15 @@ export class RollingBall {
       // Rescale core visual sphere
       const scaleFactor = this.radius / (this.visualBall.geometry as THREE.SphereGeometry).parameters.radius;
       this.visualBall.scale.set(scaleFactor, scaleFactor, scaleFactor);
+
+      // Keep all attached items positioned on the expanding outer surface
+      for (let i = 0; i < this.absorbedItems.length; i++) {
+        const item = this.absorbedItems[i];
+        if (item.surfaceNormal) {
+          const offset = item.surfaceOffset ?? item.radius * 0.25;
+          item.mesh.position.copy(item.surfaceNormal).multiplyScalar(this.radius * 0.94 + offset);
+        }
+      }
     }
 
     // 2. Integrate horizontal velocity & acceleration
@@ -275,7 +325,7 @@ export class RollingBall {
     // Apply linear drag to horizontal movement
     const horizSpeed = Math.hypot(this.velocity.x, this.velocity.z);
     if (horizSpeed > 0.0001) {
-      const dragFactor = Math.max(0, 1 - (this.grounded ? this.drag : this.drag * 0.4) * dt);
+      const dragFactor = Math.max(0, 1 - (this.grounded ? this.drag : this.drag * 0.35) * dt);
       this.velocity.x *= dragFactor;
       this.velocity.z *= dragFactor;
 
@@ -289,20 +339,42 @@ export class RollingBall {
       }
     }
 
-    // 3. Vertical Physics (Gravity & Jumping)
+    // 3. Vertical Physics (Gravity & Jumping) with bumpy Katamari surface physics
     this.velocity.y += this.gravity * dt;
     this.position.addScaledVector(this.velocity, dt);
 
-    // Ground collision check
-    if (this.position.y <= this.radius) {
-      this.position.y = this.radius;
+    // Subtle Katamari bumpy wobble on ground contact when items are attached
+    const bumpyOffset =
+      this.absorbedItems.length > 0
+        ? Math.abs(Math.sin((this.position.x + this.position.z) * 1.5)) * Math.min(0.12, this.radius * 0.05)
+        : 0;
+    const effectiveGroundRadius = this.radius + bumpyOffset;
+
+    // Ground collision check with generous grounded tolerance
+    const isAtGroundLevel = this.position.y <= effectiveGroundRadius + 0.12 && this.velocity.y <= 0.5;
+    if (isAtGroundLevel) {
+      if (this.position.y < effectiveGroundRadius) {
+        this.position.y = effectiveGroundRadius;
+      }
       if (!this.grounded && this.velocity.y < -3.0) {
         asmrAudio.playSquish(0.5); // Landing squish!
       }
       this.grounded = true;
-      this.velocity.y = 0;
+      this.coyoteTimer = 0.22; // 220ms coyote time
+      if (this.velocity.y < 0) {
+        this.velocity.y = 0;
+      }
     } else {
       this.grounded = false;
+      this.coyoteTimer = Math.max(0, this.coyoteTimer - dt);
+    }
+
+    // Process buffered jump if landed within buffer window
+    if (this.jumpBufferTimer > 0) {
+      this.jumpBufferTimer = Math.max(0, this.jumpBufferTimer - dt);
+      if (this.grounded || this.coyoteTimer > 0) {
+        this.executeJump();
+      }
     }
 
     this.group.position.copy(this.position);
@@ -338,6 +410,8 @@ export class RollingBall {
     this.velocity.set(0, 0, 0);
     this.acceleration.set(0, 0, 0);
     this.invulnerableTimer = 0;
+    this.coyoteTimer = 0;
+    this.jumpBufferTimer = 0;
     this.visualBall.visible = true;
 
     // Remove all absorbed items from group

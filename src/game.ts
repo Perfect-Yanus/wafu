@@ -7,6 +7,7 @@ import { SquishyBallStudio } from './studio/SquishyBallStudio';
 import { BallCustomizer } from './customizer/BallCustomizer';
 import { UIManager } from './ui/UIManager';
 import { TouchJoystick } from './ui/TouchJoystick';
+import { STAGES } from './world/StageManager';
 
 export class Game {
   private canvas: HTMLCanvasElement;
@@ -22,6 +23,13 @@ export class Game {
   private customizer: BallCustomizer;
   private uiManager: UIManager;
   private joystick: TouchJoystick;
+
+  // 360° Touchscreen & Mouse Camera Orbit
+  private cameraAzimuth: number = 0;
+  private cameraElevation: number = 0.35;
+  private cameraTouchId: number | null = null;
+  private lastTouchCamPos: THREE.Vector2 = new THREE.Vector2();
+  private isPointerDraggingCamera: boolean = false;
 
   // Keyboard input state
   private keys: Record<string, boolean> = {};
@@ -71,6 +79,13 @@ export class Game {
     this.cityWorld.onTimeBonusCollected = (bonusSec: number) => {
       this.state.addBonusTime(bonusSec);
     };
+    this.cityWorld.onPortalEntered = () => {
+      asmrAudio.playPortalEnter();
+      this.state.triggerVictory();
+    };
+    this.cityWorld.onPortalBlocked = (targetCm: number) => {
+      this.uiManager.showHazardAlert(`portal_locked:${targetCm.toFixed(0)}`);
+    };
 
     // Studio environment
     this.studio = new SquishyBallStudio(this.scene, this.rollingBall.getRadius());
@@ -81,6 +96,12 @@ export class Game {
     this.uiManager.setOnCityReset(() => this.resetCity());
     this.uiManager.setOnJump(() => this.rollingBall.jump());
     this.uiManager.setOnBoost(() => this.rollingBall.triggerBoost(2.0));
+    this.uiManager.setOnStageSelect((stageIndex: number) => this.loadStage(stageIndex, true));
+    this.uiManager.setOnStartGame(() => {
+      asmrAudio.unlock();
+      asmrAudio.startBgm();
+      this.state.closeBriefing();
+    });
 
     this.joystick = new TouchJoystick(uiContainer);
 
@@ -91,6 +112,9 @@ export class Game {
     this.setupInputs();
     this.setupStateTransitions();
     this.onWindowResize();
+
+    // Initialize Stage 1
+    this.loadStage(0, true);
 
     // Start loop
     this.animate = this.animate.bind(this);
@@ -158,10 +182,78 @@ export class Game {
       }
     });
 
+    // Touchscreen Camera Rotation (Right side of screen, 360° orbit)
+    window.addEventListener(
+      'touchstart',
+      (e) => {
+        asmrAudio.unlock();
+        if (this.state.getMode() !== 'CITY') return;
+
+        const target = e.target as HTMLElement;
+        if (
+          target.closest(
+            'button, input, select, .no-joystick, .city-action-buttons, .btn-action, .challenge-modal-backdrop, .modal-briefing-backdrop'
+          )
+        ) {
+          return;
+        }
+
+        if (this.cameraTouchId !== null) return;
+
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const touch = e.changedTouches[i];
+          // Do not capture touch in the bottom-right action button area (Jump & Boost)
+          const isActionArea = touch.clientX > window.innerWidth - 130 && touch.clientY > window.innerHeight - 260;
+          if (isActionArea) continue;
+
+          if (touch.clientX > window.innerWidth * 0.45) {
+            this.cameraTouchId = touch.identifier;
+            this.lastTouchCamPos.set(touch.clientX, touch.clientY);
+            break;
+          }
+        }
+      },
+      { passive: false }
+    );
+
+    window.addEventListener(
+      'touchmove',
+      (e) => {
+        if (this.state.getMode() !== 'CITY' || this.cameraTouchId === null) return;
+
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const touch = e.changedTouches[i];
+          if (touch.identifier === this.cameraTouchId) {
+            const dx = touch.clientX - this.lastTouchCamPos.x;
+            const dy = touch.clientY - this.lastTouchCamPos.y;
+
+            this.cameraAzimuth -= dx * 0.007;
+            this.cameraElevation = Math.max(0.08, Math.min(1.2, this.cameraElevation + dy * 0.005));
+
+            this.lastTouchCamPos.set(touch.clientX, touch.clientY);
+            break;
+          }
+        }
+      },
+      { passive: false }
+    );
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (this.cameraTouchId === null) return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === this.cameraTouchId) {
+          this.cameraTouchId = null;
+          break;
+        }
+      }
+    };
+    window.addEventListener('touchend', onTouchEnd, { passive: false });
+    window.addEventListener('touchcancel', onTouchEnd, { passive: false });
+
     // Window resize
     window.addEventListener('resize', this.onWindowResize.bind(this));
 
-    // Pointer events for Studio interaction
+    // Pointer events for Studio interaction & desktop camera drag
     this.canvas.addEventListener('pointerdown', this.onPointerDown.bind(this));
     window.addEventListener('pointermove', this.onPointerMove.bind(this));
     window.addEventListener('pointerup', this.onPointerUp.bind(this));
@@ -178,6 +270,10 @@ export class Game {
       if (hits.length > 0) {
         this.studio.onPointerDown(hits[0]);
       }
+    } else {
+      if (e.pointerType === 'mouse' && e.button === 0) {
+        this.isPointerDraggingCamera = true;
+      }
     }
   }
 
@@ -190,10 +286,17 @@ export class Game {
       this.raycaster.setFromCamera(this.mousePos, this.camera);
       const hits = this.raycaster.intersectObject(this.studio.deformableBall.mesh);
       this.studio.onPointerMove(hits.length > 0 ? hits[0] : null, delta);
+    } else if (this.isPointerDraggingCamera) {
+      const dx = e.clientX - this.prevMouse.x;
+      const dy = e.clientY - this.prevMouse.y;
+      this.cameraAzimuth -= dx * 0.006;
+      this.cameraElevation = Math.max(0.08, Math.min(1.2, this.cameraElevation + dy * 0.004));
+      this.prevMouse.set(e.clientX, e.clientY);
     }
   }
 
   private onPointerUp(): void {
+    this.isPointerDraggingCamera = false;
     if (this.state.getMode() === 'STUDIO') {
       this.studio.onPointerUp();
     }
@@ -211,20 +314,31 @@ export class Game {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
   }
 
-  public resetCity(): void {
+  public loadStage(stageIndex: number, openBriefing: boolean = true): void {
+    const clampedIndex = Math.max(0, Math.min(STAGES.length - 1, stageIndex));
+    const stage = STAGES[clampedIndex];
     this.rollingBall.reset(0.6);
     this.rollingBall.setMaterial(this.customizer.getMaterial() as THREE.MeshStandardMaterial);
-    this.cityWorld.reset(180);
-    this.state.resetChallenge(250, 150);
+    this.cityWorld.loadStage(stage);
+    this.state.setStage(clampedIndex, stage.targetDiameterCm, stage.timeLimitSec);
+    if (!openBriefing) {
+      this.state.closeBriefing();
+    }
     this.state.updateStats({
       currentDiameterCm: this.rollingBall.getRadius() * 200,
       absorbedCount: 0,
     });
+    this.cameraAzimuth = 0;
+    this.cameraElevation = 0.35;
+  }
+
+  public resetCity(): void {
+    this.loadStage(this.state.getStats().stageIndex, false);
   }
 
   private updateCity(dt: number): void {
     // 0. Update Challenge countdown timer
-    this.state.tickTimer(dt);
+    this.state.tickTimer(dt, this.cityWorld.currentStage.hasPortalExit);
 
     // 1. Gather directional input
     const inputDir = new THREE.Vector2(0, 0);
@@ -243,14 +357,23 @@ export class Game {
 
     if (inputDir.lengthSq() > 0.0001) {
       inputDir.normalize();
-      this.rollingBall.applyInput(inputDir, dt);
+
+      // Camera-relative steering:
+      // Rotate input vector by camera azimuth so pushing UP always rolls forward in the camera view
+      const sin = Math.sin(this.cameraAzimuth);
+      const cos = Math.cos(this.cameraAzimuth);
+      const worldDir = new THREE.Vector2(
+        inputDir.x * cos + inputDir.y * sin,
+        -inputDir.x * sin + inputDir.y * cos
+      );
+      this.rollingBall.applyInput(worldDir, dt);
     }
 
     // 2. Update ball physics
     this.rollingBall.update(dt);
     this.cityWorld.clampBallToBounds(this.rollingBall);
 
-    // 3. Collision & Katamari absorption & Gadgets & Hazards
+    // 3. Collision & Katamari absorption & Gadgets & Hazards & Characters & Portal
     this.cityWorld.checkCollisions(this.rollingBall, dt);
 
     // 4. Update HUD stats & speedometer
@@ -268,15 +391,21 @@ export class Game {
     this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFov, Math.min(1.0, dt * 5.0));
     this.camera.updateProjectionMatrix();
 
-    // 6. Third-person follow camera
+    // 6. Third-person follow camera with 360° Azimuth and Elevation orbit
     const ballPos = this.rollingBall.getPosition();
     const r = this.rollingBall.getRadius();
     const speedRatio = Math.min(1.0, currentSpeed / 120.0);
     const camDist = 4.2 + r * 3.8 + speedRatio * 2.8;
-    const camHeight = 2.4 + r * 2.2 + speedRatio * 1.2;
 
-    const targetCamPos = new THREE.Vector3(ballPos.x, ballPos.y + camHeight, ballPos.z + camDist);
-    this.camera.position.lerp(targetCamPos, Math.min(1.0, dt * 6.0));
+    const horizDist = camDist * Math.cos(this.cameraElevation);
+    const camHeight = camDist * Math.sin(this.cameraElevation) + r * 0.45;
+
+    const targetCamPos = new THREE.Vector3(
+      ballPos.x + Math.sin(this.cameraAzimuth) * horizDist,
+      ballPos.y + camHeight,
+      ballPos.z + Math.cos(this.cameraAzimuth) * horizDist
+    );
+    this.camera.position.lerp(targetCamPos, Math.min(1.0, dt * 7.5));
     this.camera.lookAt(ballPos.x, ballPos.y + r * 0.4, ballPos.z);
   }
 

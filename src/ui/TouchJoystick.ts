@@ -44,10 +44,10 @@ export class TouchJoystick {
 
     if (this.touchId !== null) return; // Already tracking
 
-    // Loop through changed touches to find one on the left/steering side of screen (<= 65% width)
+    // Loop through changed touches to find one on the left/steering side of screen (<= 48% width)
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i];
-      if (touch.clientX <= window.innerWidth * 0.65) {
+      if (touch.clientX <= window.innerWidth * 0.48) {
         this.touchId = touch.identifier;
         this.originX = touch.clientX;
         this.originY = touch.clientY;
