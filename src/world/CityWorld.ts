@@ -2,8 +2,17 @@ import * as THREE from 'three';
 import { AbsorbableItem } from '../physics/AbsorbableItem';
 import { ItemCatalog } from './ItemCatalog';
 import { RollingBall } from '../physics/RollingBall';
-import { BoostPad, Trampoline, DestructibleWall, SuperMagnetGadget } from './CityGadgets';
-import { Hazard, CactusHazard, SpikeTrapHazard, SawbladeHazard, TimeBonusItem } from './Hazards';
+import { BoostPad, Trampoline, DestructibleWall, SuperMagnetGadget, RepulsionBlastItem } from './CityGadgets';
+import {
+  Hazard,
+  CactusHazard,
+  SpikeTrapHazard,
+  SawbladeHazard,
+  MovingCactusHazard,
+  StreetMonsterHazard,
+  PatrollingSawbladeHazard,
+  TimeBonusItem,
+} from './Hazards';
 import { STAGES, StageConfig, DimensionPortal } from './StageManager';
 import { LivingCharacter } from './Characters';
 import { asmrAudio } from '../audio/AsmrAudioEngine';
@@ -62,6 +71,10 @@ export class CityWorld {
   public readonly trampolines: Trampoline[] = [];
   public readonly destructibleWalls: DestructibleWall[] = [];
   public readonly superMagnets: SuperMagnetGadget[] = [];
+  public readonly repulsionItems: RepulsionBlastItem[] = [];
+
+  // Repulsion shield & Magnet status
+  public repulsionShieldTimer: number = 0;
 
   // Hazards & Bonus Pickups
   public readonly hazards: Hazard[] = [];
@@ -73,6 +86,9 @@ export class CityWorld {
   public onPortalEntered?: () => void;
   public onPortalBlocked?: (requiredCm: number) => void;
   public onObjectBlocked?: (itemName: string, requiredCm: number, currentCm: number) => void;
+  public onRepulsionBlastTriggered?: () => void;
+  public onSuperMagnetTriggered?: () => void;
+  public onMonsterAbsorbed?: () => void;
   private lastBlockedAlertTime: number = 0;
 
   constructor(scene: THREE.Scene, config: CityWorldConfig = {}) {
@@ -414,6 +430,66 @@ export class CityWorld {
       this.timeBonuses.push(tb);
       this.scene.add(tb.mesh);
     });
+
+    // 5. Repulsion Blast Items (충격파 밀어내기 아이템)
+    const repLocations = [
+      new THREE.Vector3(12, 0, 22),
+      new THREE.Vector3(-28, 0, -18),
+      new THREE.Vector3(32, 0, -32),
+      new THREE.Vector3(-18, 0, 36),
+    ];
+    repLocations.forEach((pos, idx) => {
+      const rep = new RepulsionBlastItem(`rep-${idx}`, pos);
+      this.repulsionItems.push(rep);
+      this.scene.add(rep.mesh);
+    });
+
+    // 6. Escalating Stage Hazards (Stage 2 & Stage 3: Moving Cacti, Monsters, Patrolling Sawblades)
+    if (this.currentStage.id >= 2) {
+      // Moving Hopping Cacti
+      const mc1 = new MovingCactusHazard(
+        'mc-1',
+        new THREE.Vector3(-30, 0, 12),
+        new THREE.Vector3(-12, 0, 12)
+      );
+      const mc2 = new MovingCactusHazard(
+        'mc-2',
+        new THREE.Vector3(14, 0, -22),
+        new THREE.Vector3(38, 0, -22)
+      );
+      this.hazards.push(mc1, mc2);
+      this.scene.add(mc1.mesh, mc2.mesh);
+
+      // Patrolling Track Sawblades
+      const ps1 = new PatrollingSawbladeHazard(
+        'ps-1',
+        new THREE.Vector3(-18, 0, -42),
+        new THREE.Vector3(18, 0, -42)
+      );
+      const ps2 = new PatrollingSawbladeHazard(
+        'ps-2',
+        new THREE.Vector3(26, 0, 15),
+        new THREE.Vector3(26, 0, 48)
+      );
+      this.hazards.push(ps1, ps2);
+      this.scene.add(ps1.mesh, ps2.mesh);
+
+      // Street Monster (Chaser / Slime Beast)
+      const monster1 = new StreetMonsterHazard('monster-1', new THREE.Vector3(28, 0, 0));
+      this.hazards.push(monster1);
+      this.scene.add(monster1.mesh);
+
+      if (this.currentStage.id >= 3) {
+        const monster2 = new StreetMonsterHazard('monster-2', new THREE.Vector3(-28, 0, -28));
+        const mc3 = new MovingCactusHazard(
+          'mc-3',
+          new THREE.Vector3(0, 0, 42),
+          new THREE.Vector3(0, 0, 60)
+        );
+        this.hazards.push(monster2, mc3);
+        this.scene.add(monster2.mesh, mc3.mesh);
+      }
+    }
   }
 
   public spawnCharacters(count: number = 24): void {
@@ -448,7 +524,7 @@ export class CityWorld {
       this.scene.add(this.portal.mesh);
     }
 
-    // Refresh hazards & bonuses
+    // Refresh hazards & bonuses & repulsion items
     for (const hz of this.hazards) {
       this.scene.remove(hz.mesh);
     }
@@ -458,6 +534,12 @@ export class CityWorld {
       this.scene.remove(tb.mesh);
     }
     this.timeBonuses.length = 0;
+
+    for (const rep of this.repulsionItems) {
+      this.scene.remove(rep.mesh);
+    }
+    this.repulsionItems.length = 0;
+    this.repulsionShieldTimer = 0;
 
     this.spawnHazardsAndBonuses();
     this.spawnCharacters(stage.isPlanetSphere ? 16 : 28);
@@ -556,14 +638,80 @@ export class CityWorld {
         if (Math.hypot(dx, dz) < ballRadius + 1.2) {
           mag.activate(ball, 10.0);
           this.scene.remove(mag.mesh);
+          this.onSuperMagnetTriggered?.();
         }
       }
       mag.update(dt, ball, this.items);
     }
 
-    // 7. Check Hazards (Cactus, Spike Traps, Sawblades)
-    for (const hz of this.hazards) {
-      hz.update(dt);
+    // 6b. Check & update Repulsion Blast items
+    if (this.repulsionShieldTimer > 0) {
+      this.repulsionShieldTimer = Math.max(0, this.repulsionShieldTimer - dt);
+    }
+
+    for (let i = this.repulsionItems.length - 1; i >= 0; i--) {
+      const rep = this.repulsionItems[i];
+      rep.update(dt);
+      if (rep.checkCollection(ball)) {
+        this.repulsionShieldTimer = 6.0;
+        asmrAudio.playPop();
+        asmrAudio.playAbsorb(5);
+
+        // Sonic shockwave blast: repels unabsorbable objects and hazards within 18m
+        for (const item of this.items) {
+          if (item.isAbsorbed()) continue;
+          const iPos = item.getWorldPosition();
+          const dx = iPos.x - ballPos.x;
+          const dz = iPos.z - ballPos.z;
+          const dist = Math.hypot(dx, dz);
+          if (dist < 18.0 && dist > 0.001) {
+            item.mesh.position.x += (dx / dist) * 12.0;
+            item.mesh.position.z += (dz / dist) * 12.0;
+          }
+        }
+        for (const hz of this.hazards) {
+          const dx = hz.position.x - ballPos.x;
+          const dz = hz.position.z - ballPos.z;
+          const dist = Math.hypot(dx, dz);
+          if (dist < 18.0 && dist > 0.001) {
+            hz.position.x += (dx / dist) * 14.0;
+            hz.position.z += (dz / dist) * 14.0;
+            hz.mesh.position.x = hz.position.x;
+            hz.mesh.position.z = hz.position.z;
+          }
+        }
+
+        this.onRepulsionBlastTriggered?.();
+        this.repulsionItems.splice(i, 1);
+      }
+    }
+
+    // 7. Check Hazards (Cactus, Spike Traps, Sawblades, Moving Cacti, Monsters, Patrolling Traps)
+    for (let i = this.hazards.length - 1; i >= 0; i--) {
+      const hz = this.hazards[i];
+      if (hz.isDead) {
+        this.scene.remove(hz.mesh);
+        this.hazards.splice(i, 1);
+        this.onMonsterAbsorbed?.();
+        continue;
+      }
+
+      hz.update(dt, ballPos, ballRadius);
+
+      // If repulsion shield is active, deflect hazards away!
+      if (this.repulsionShieldTimer > 0) {
+        const dx = hz.position.x - ballPos.x;
+        const dz = hz.position.z - ballPos.z;
+        const dist = Math.hypot(dx, dz);
+        if (dist < ballRadius + 2.5 && dist > 0.001) {
+          hz.position.x += (dx / dist) * 7.0 * dt;
+          hz.position.z += (dz / dist) * 7.0 * dt;
+          hz.mesh.position.x = hz.position.x;
+          hz.mesh.position.z = hz.position.z;
+          continue; // Deflected by shield!
+        }
+      }
+
       const hit = hz.checkCollision(ball);
       if (hit) {
         this.onBallShrunk?.(hz.type);
@@ -580,6 +728,24 @@ export class CityWorld {
 
     // 9. Static Obstacle Collisions (Hedge maze walls, barricades, fountain, boundaries)
     this.resolveStaticObstacleCollisions(ball);
+
+    // 9b. Passive Micro-Magnetism: Gentle vacuum pull for nearby absorbable items
+    const magnetPullDist = ballRadius * 1.6 + 2.8;
+    const magnetPullDistSq = magnetPullDist * magnetPullDist;
+
+    for (let i = 0; i < this.items.length; i++) {
+      const item = this.items[i];
+      if (item.isAbsorbed()) continue;
+
+      const itemPos = item.getWorldPosition();
+      const dx = ballPos.x - itemPos.x;
+      const dz = ballPos.z - itemPos.z;
+      const dSq = dx * dx + dz * dz;
+
+      if (dSq <= magnetPullDistSq && ball.canAbsorb(item)) {
+        item.mesh.position.lerp(ballPos, dt * 3.6);
+      }
+    }
 
     // 10. Absorbable items collision
     for (let i = this.items.length - 1; i >= 0; i--) {

@@ -329,3 +329,80 @@ export class SuperMagnetGadget {
     }
   }
 }
+
+/**
+ * 5. REPULSION BLAST ITEM (충격파 밀어내기 아이템)
+ * Floating pulsating cyan/magenta shockwave orb with spinning energy rings.
+ * When touched by the ball:
+ * - Emits a powerful blast wave that shoves unabsorbable objects, obstacles, and moving monsters/cacti 16m away!
+ * - Grants the ball a 6-second "Repulsion Shield" that deflects any approaching hazard or large obstacle.
+ */
+export class RepulsionBlastItem {
+  public readonly id: string;
+  public readonly position: THREE.Vector3;
+  public readonly mesh: THREE.Group;
+  public readonly radius: number = 1.1;
+  private collected: boolean = false;
+  private baseY: number;
+  private orb: THREE.Mesh;
+  private shockRings: THREE.Mesh[] = [];
+
+  constructor(id: string, position: THREE.Vector3) {
+    this.id = id;
+    this.position = position.clone();
+    this.baseY = position.y + 0.85;
+    this.mesh = new THREE.Group();
+    this.mesh.position.set(position.x, this.baseY, position.z);
+
+    // Glowing energy core
+    const coreMat = new THREE.MeshStandardMaterial({
+      color: 0x00f5d4,
+      emissive: 0x00f5d4,
+      emissiveIntensity: 0.9,
+      roughness: 0.1,
+    });
+    this.orb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.45, 2), coreMat);
+    this.mesh.add(this.orb);
+
+    // Orbiting shockwave rings
+    const ringMat = new THREE.MeshStandardMaterial({
+      color: 0xff007f,
+      emissive: 0xff007f,
+      emissiveIntensity: 0.8,
+      wireframe: true,
+    });
+
+    for (let i = 0; i < 2; i++) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.75 + i * 0.25, 0.04, 8, 24), ringMat);
+      ring.rotation.x = Math.PI / (2 + i);
+      ring.rotation.y = (i * Math.PI) / 3;
+      this.shockRings.push(ring);
+      this.mesh.add(ring);
+    }
+  }
+
+  public isCollected(): boolean {
+    return this.collected;
+  }
+
+  public update(dt: number): void {
+    if (this.collected) return;
+    this.orb.rotation.y += dt * 3.0;
+    this.mesh.position.y = this.baseY + Math.sin(Date.now() * 0.005) * 0.22;
+    for (let i = 0; i < this.shockRings.length; i++) {
+      this.shockRings[i].rotation.z += dt * (i === 0 ? 2.5 : -3.0);
+    }
+  }
+
+  public checkCollection(ball: RollingBall): boolean {
+    if (this.collected) return false;
+    const bPos = ball.getPosition();
+    const hitRadius = this.radius + ball.getRadius();
+    if (bPos.distanceToSquared(this.mesh.position) <= hitRadius * hitRadius) {
+      this.collected = true;
+      this.mesh.visible = false;
+      return true;
+    }
+    return false;
+  }
+}

@@ -89,6 +89,18 @@ export class Game {
     this.cityWorld.onObjectBlocked = (itemName: string, reqCm: number, curCm: number) => {
       this.uiManager?.showBlockedAlert(itemName, reqCm, curCm);
     };
+    this.cityWorld.onRepulsionBlastTriggered = () => {
+      asmrAudio.playPop();
+      this.uiManager?.showRepulsionAlert();
+    };
+    this.cityWorld.onSuperMagnetTriggered = () => {
+      asmrAudio.playBoing();
+      this.uiManager?.showMagnetAlert();
+    };
+    this.cityWorld.onMonsterAbsorbed = () => {
+      asmrAudio.playPop();
+      this.uiManager?.showMonsterAbsorbedAlert();
+    };
 
     // Studio environment
     this.studio = new SquishyBallStudio(this.scene, this.rollingBall.getRadius());

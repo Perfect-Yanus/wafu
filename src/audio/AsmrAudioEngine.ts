@@ -666,6 +666,10 @@ export class AsmrAudioEngine {
     this.playSquish(0.35);
   }
 
+  public playBoing(): void {
+    this.playBounceHeavy(0.75);
+  }
+
   /**
    * 15. TIME BONUS ASMR (보너스 시계 획득 차임벨)
    * Bright crystal chime arpeggio
@@ -822,17 +826,27 @@ export class AsmrAudioEngine {
   private bgmStep: number = 0;
   private bgmGainNode: GainNode | null = null;
 
-  public startBgm(): void {
-    if (this.bgmPlaying || !this.ctx) return;
+  public async startBgm(): Promise<void> {
+    if (this.bgmPlaying) return;
+    if (!this.ctx) this.initContext();
+    if (this.ctx && this.ctx.state === 'suspended') {
+      try {
+        await this.ctx.resume();
+        this.unlocked = true;
+      } catch (e) {
+        console.warn('AudioContext resume error in startBgm:', e);
+      }
+    }
     this.bgmPlaying = true;
 
-    if (!this.bgmGainNode) {
+    if (!this.bgmGainNode && this.ctx) {
       this.bgmGainNode = this.ctx.createGain();
       this.bgmGainNode.gain.setValueAtTime(0.24, this.ctx.currentTime);
       this.bgmGainNode.connect(this.masterGain ?? this.ctx.destination);
     }
 
-    const stepIntervalMs = 118; // ~127 BPM 16th notes
+    if (!this.ctx) return;
+
     let nextNoteTime = this.ctx.currentTime + 0.05;
 
     // 16-Bar (128 steps) Chords Voicings (root, 3rd, 5th, 7th)
@@ -897,8 +911,18 @@ export class AsmrAudioEngine {
       1046.5, 0, 987.77, 0, 880.0, 0, 783.99, 0, 659.25, 0, 587.33, 0, 523.25, 0, 0, 0,
     ];
 
+    if (this.bgmTimer) clearInterval(this.bgmTimer);
     this.bgmTimer = window.setInterval(() => {
       if (!this.bgmPlaying || !this.ctx || !this.bgmGainNode) return;
+
+      if (this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+        return;
+      }
+
+      if (nextNoteTime < this.ctx.currentTime) {
+        nextNoteTime = this.ctx.currentTime + 0.02;
+      }
 
       while (nextNoteTime < this.ctx.currentTime + 0.25) {
         const step = this.bgmStep % 128;
@@ -1060,7 +1084,7 @@ export class AsmrAudioEngine {
         this.bgmStep++;
         nextNoteTime += 0.118;
       }
-    }, stepIntervalMs);
+    }, 45);
   }
 
   public stopBgm(): void {

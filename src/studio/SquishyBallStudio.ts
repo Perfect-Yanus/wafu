@@ -166,6 +166,15 @@ export class SquishyBallStudio {
     }
   }
 
+  public loadSavedBall(radius: number, material: THREE.Material): void {
+    this.deformableBall.setBaseRadius(radius);
+    this.deformableBall.mesh.material = material;
+    this.deformableBall.mesh.position.set(0, radius + 0.1, 0);
+    this.deformableBall.reset();
+    this.clearCracksAndSlices();
+    this.refreshFillings(radius);
+  }
+
   public onPointerDown(intersection: THREE.Intersection): void {
     this.isPointerDown = true;
     const localHit = this.deformableBall.mesh.worldToLocal(intersection.point.clone());

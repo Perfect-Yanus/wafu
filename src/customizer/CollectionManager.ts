@@ -8,10 +8,13 @@ export interface SavedWafuBall {
   maxDiameterCm: number;
   itemsAbsorbedCount: number;
   createdAt: number;
+  stageName?: string;
+  playsRemaining: number;
+  unlimitedPlays: boolean;
 }
 
 export class CollectionManager {
-  private static STORAGE_KEY = 'wafu_ball_collection_v1';
+  private static STORAGE_KEY = 'wafu_ball_collection_v2';
   private static ACTIVE_KEY = 'wafu_active_ball_id';
   private balls: SavedWafuBall[] = [];
   private activeBallId: string = '';
@@ -54,6 +57,9 @@ export class CollectionManager {
         maxDiameterCm: 120.0,
         itemsAbsorbedCount: 15,
         createdAt: Date.now() - 86400000,
+        stageName: 'Stage 1',
+        playsRemaining: 5,
+        unlimitedPlays: false,
       },
       {
         id: 'ball-default-jelly',
@@ -63,6 +69,9 @@ export class CollectionManager {
         maxDiameterCm: 250.0,
         itemsAbsorbedCount: 42,
         createdAt: Date.now() - 43200000,
+        stageName: 'Stage 2',
+        playsRemaining: 5,
+        unlimitedPlays: false,
       },
       {
         id: 'ball-default-tape',
@@ -72,6 +81,9 @@ export class CollectionManager {
         maxDiameterCm: 320.0,
         itemsAbsorbedCount: 68,
         createdAt: Date.now(),
+        stageName: 'Stage 3',
+        playsRemaining: 5,
+        unlimitedPlays: true, // Bonus test unlimited
       },
     ];
 
@@ -103,12 +115,15 @@ export class CollectionManager {
     return false;
   }
 
-  public saveBall(data: Omit<SavedWafuBall, 'id' | 'createdAt'> & { id?: string }): SavedWafuBall {
+  public saveBall(data: Partial<SavedWafuBall> & { name: string; color: string; materialPreset: MaterialPresetId; maxDiameterCm: number; itemsAbsorbedCount: number }): SavedWafuBall {
     const id = data.id || `ball-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     const newBall: SavedWafuBall = {
+      playsRemaining: data.playsRemaining ?? 5,
+      unlimitedPlays: data.unlimitedPlays ?? false,
+      stageName: data.stageName ?? '자유 모드',
       ...data,
       id,
-      createdAt: Date.now(),
+      createdAt: data.createdAt ?? Date.now(),
     };
 
     const existingIdx = this.balls.findIndex((b) => b.id === id);
@@ -121,6 +136,31 @@ export class CollectionManager {
     this.activeBallId = id;
     this.save();
     return newBall;
+  }
+
+  public consumePlay(id: string): { allowed: boolean; remaining: number; unlimited: boolean } {
+    const ball = this.getById(id);
+    if (!ball) return { allowed: false, remaining: 0, unlimited: false };
+    if (ball.unlimitedPlays) {
+      return { allowed: true, remaining: 999, unlimited: true };
+    }
+    if (ball.playsRemaining > 0) {
+      ball.playsRemaining -= 1;
+      this.save();
+      return { allowed: true, remaining: ball.playsRemaining, unlimited: false };
+    }
+    return { allowed: false, remaining: 0, unlimited: false };
+  }
+
+  public unlockUnlimited(id: string): boolean {
+    const ball = this.getById(id);
+    if (ball) {
+      ball.unlimitedPlays = true;
+      ball.playsRemaining = 999;
+      this.save();
+      return true;
+    }
+    return false;
   }
 
   public deleteBall(id: string): boolean {

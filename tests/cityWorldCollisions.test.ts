@@ -50,12 +50,12 @@ describe('CityWorld Collisions & Object Distinction', () => {
   it('should bounce off unabsorbable objects and trigger onObjectBlocked callback', () => {
     const ball = new RollingBall({
       initialRadius: 0.2, // 20cm ball
-      initialPosition: new THREE.Vector3(15, 0.2, 15),
+      initialPosition: new THREE.Vector3(150, 0.2, 150),
     });
     ball.getVelocity().set(4.0, 0, 0);
 
     // Create a large unabsorbable item (e.g. car or tree, tier 4, radius ~2.0m)
-    const largeItem = catalog.createItem('car', 4, new THREE.Vector3(16.5, 0, 15));
+    const largeItem = catalog.createItem('car', 4, new THREE.Vector3(151.5, 0, 150));
     cityWorld.addItem(largeItem);
 
     expect(ball.canAbsorb(largeItem)).toBe(false);

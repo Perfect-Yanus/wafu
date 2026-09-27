@@ -292,6 +292,9 @@ export class UIManager {
               <button id="btn-modal-studio" class="btn-primary btn-smash-highlight" style="font-size:16px; padding:14px;">
                 💥 와뿌볼 박살내기! (스튜디오 이동)
               </button>
+              <button id="btn-modal-save-inventory" class="btn-secondary" style="font-weight:700; width:100%; border:1px solid var(--accent-cyan); color:#e0f2fe; margin-top:8px;">
+                📦 이번 와뿌볼 인벤토리에 보관 (소장하기)
+              </button>
               ${
                 stats.stageIndex < STAGES.length - 1
                   ? `<button id="btn-modal-next-stage" class="btn-secondary" style="font-weight:700;">➡️ 다음 스테이지 도전 (${STAGES[stats.stageIndex + 1].title.split(':')[0]})</button>`
@@ -440,22 +443,44 @@ export class UIManager {
 
         <div>
           <div class="panel-section-title" style="display:flex; justify-content:space-between; align-items:center;">
-            <span>📚 와뿌볼 보관함</span>
-            <button id="btn-save-ball" class="btn-secondary" style="font-size: 11px; padding: 4px 8px;">💾 현재 볼 저장</button>
+            <span>📦 내 와뿌볼 보관함</span>
+            <button id="btn-save-ball" class="btn-secondary" style="font-size: 11px; padding: 4px 8px;">💾 현재 볼 보관</button>
           </div>
           <div class="collection-list">
             ${savedBalls
               .map(
                 (b) => `
               <div class="collection-item ${b.id === activeBall.id ? 'active' : ''}" data-ball-id="${b.id}">
-                <div class="item-left">
-                  <span class="color-dot" style="background-color: ${b.color};"></span>
-                  <div>
-                    <div class="item-title">${b.name}</div>
+                <div class="item-left" style="width:100%;">
+                  <span class="color-dot" style="background-color: ${b.color}; align-self: flex-start; margin-top: 4px;"></span>
+                  <div style="flex:1; min-width:0;">
+                    <div class="item-title" style="display:flex; justify-content:space-between; align-items:center;">
+                      <strong>${b.name}</strong>
+                      <span class="stage-tag" style="font-size:10px; color:var(--accent-cyan); background:rgba(0,229,255,0.15); padding:1px 6px; border-radius:4px;">${b.stageName ?? '자유 모드'}</span>
+                    </div>
                     <div class="item-meta">Ø ${b.maxDiameterCm.toFixed(1)}cm · ${b.itemsAbsorbedCount}개 수집</div>
+                    <div class="item-play-status" style="font-size:11px; margin-top:3px; display:flex; align-items:center; gap:6px;">
+                      ${
+                        b.unlimitedPlays
+                          ? `<span style="color:#00ff88; font-weight:700;">💎 무제한 이용권 해금됨</span>`
+                          : `<span style="color:${b.playsRemaining > 0 ? '#ffd166' : '#ff4444'}; font-weight:700;">🎮 남은 플레이: ${b.playsRemaining}회</span>`
+                      }
+                    </div>
+                    <div class="item-actions-row" style="margin-top:6px; display:flex; gap:6px; align-items:center;">
+                      <button class="btn-play-smash" data-play-id="${b.id}" style="font-size:11px; font-weight:700; padding:4px 8px; background:linear-gradient(135deg, #ff3366, #ff758f); color:#fff; border:none; border-radius:4px; cursor:pointer;" title="스튜디오에서 꺼내어 박살내기">
+                        💥 꺼내서 박살내기
+                      </button>
+                      ${
+                        !b.unlimitedPlays
+                          ? `<button class="btn-unlock-unlimited" data-unlock-id="${b.id}" style="font-size:10px; padding:4px 6px; background:rgba(56,189,248,0.15); color:#38bdf8; border:1px solid rgba(56,189,248,0.5); border-radius:4px; cursor:pointer;" title="추가 결제 해금">
+                              💎 무제한 해금
+                            </button>`
+                          : ''
+                      }
+                    </div>
                   </div>
+                  <button class="btn-delete-ball" data-delete-id="${b.id}" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:14px; padding:4px; align-self:flex-start;" title="삭제">✕</button>
                 </div>
-                <button class="btn-delete-ball" data-delete-id="${b.id}" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:14px;" title="삭제">✕</button>
               </div>
             `
               )
@@ -506,6 +531,42 @@ export class UIManager {
       alertEl.classList.remove('visible');
       alertEl.classList.remove('blocked');
     }, 1600);
+  }
+
+  public showRepulsionAlert(): void {
+    const alertEl = document.getElementById('hazard-alert');
+    if (!alertEl) return;
+    alertEl.textContent = '⚡ 밀어내기 파동 발동! (장애물 방출 & 6초 방어 쉴드)';
+    alertEl.className = 'hazard-alert visible alert-repulsion';
+    if (this.hazardAlertTimeout) clearTimeout(this.hazardAlertTimeout);
+    this.hazardAlertTimeout = window.setTimeout(() => {
+      alertEl.classList.remove('visible');
+      alertEl.classList.remove('alert-repulsion');
+    }, 1800);
+  }
+
+  public showMagnetAlert(): void {
+    const alertEl = document.getElementById('hazard-alert');
+    if (!alertEl) return;
+    alertEl.textContent = '🧲 슈퍼 자석 발동! (주변 모든 물체 흡입력 폭발!)';
+    alertEl.className = 'hazard-alert visible alert-magnet';
+    if (this.hazardAlertTimeout) clearTimeout(this.hazardAlertTimeout);
+    this.hazardAlertTimeout = window.setTimeout(() => {
+      alertEl.classList.remove('visible');
+      alertEl.classList.remove('alert-magnet');
+    }, 1800);
+  }
+
+  public showMonsterAbsorbedAlert(): void {
+    const alertEl = document.getElementById('hazard-alert');
+    if (!alertEl) return;
+    alertEl.textContent = '👾 스트리트 괴물을 통째로 흡수했습니다! (+45cm 대형 보너스!)';
+    alertEl.className = 'hazard-alert visible alert-monster';
+    if (this.hazardAlertTimeout) clearTimeout(this.hazardAlertTimeout);
+    this.hazardAlertTimeout = window.setTimeout(() => {
+      alertEl.classList.remove('visible');
+      alertEl.classList.remove('alert-monster');
+    }, 2200);
   }
 
   private bindTouchAndClick(element: HTMLElement | null, action: () => void): void {
@@ -594,12 +655,15 @@ export class UIManager {
                 <button id="btn-modal-studio" class="btn-primary btn-smash-highlight" style="font-size:16px; padding:14px; width:100%;">
                   💥 와뿌볼 박살내기! (스튜디오 이동)
                 </button>
+                <button id="btn-modal-save-inventory" class="btn-secondary" style="font-weight:700; width:100%; border:1px solid var(--accent-cyan); color:#e0f2fe; margin-top:8px;">
+                  📦 이번 와뿌볼 인벤토리에 보관 (소장하기)
+                </button>
                 ${
                   stats.stageIndex < STAGES.length - 1
-                    ? `<button id="btn-modal-next-stage" class="btn-secondary" style="font-weight:700; width:100%;">➡️ 다음 스테이지 도전 (${STAGES[stats.stageIndex + 1].title.split(':')[0]})</button>`
+                    ? `<button id="btn-modal-next-stage" class="btn-secondary" style="font-weight:700; width:100%; margin-top:8px;">➡️ 다음 스테이지 도전 (${STAGES[stats.stageIndex + 1].title.split(':')[0]})</button>`
                     : ''
                 }
-                <button id="btn-modal-retry" class="btn-secondary" style="width:100%;">🔄 현재 스테이지 다시 하기</button>
+                <button id="btn-modal-retry" class="btn-secondary" style="width:100%; margin-top:8px;">🔄 현재 스테이지 다시 하기</button>
               `;
               this.bindChallengeModalButtons();
             }
@@ -825,12 +889,61 @@ export class UIManager {
       });
     }
 
+    // Play / Smash saved ball from inventory
+    const playSmashBtns = this.container.querySelectorAll('.btn-play-smash');
+    playSmashBtns.forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await this.audio.unlock();
+        const id = (e.currentTarget as HTMLElement).getAttribute('data-play-id');
+        if (!id) return;
+
+        const result = this.customizer.collection.consumePlay(id);
+        const ball = this.customizer.collection.getById(id);
+        if (!ball) return;
+
+        if (result.allowed) {
+          const loaded = this.customizer.loadFromCollection(id);
+          if (loaded) {
+            const mat = this.customizer.getMaterial();
+            this.studio.loadSavedBall(loaded.maxDiameterCm / 200, mat);
+            this.audio.playPop();
+            alert(`💥 [${ball.name}]을 꺼냈습니다! 마음껏 두드리고 박살내세요!\n${result.unlimited ? '💎 무제한 플레이 가능' : `🎮 남은 플레이 횟수: ${result.remaining}회`}`);
+            this.render();
+          }
+        } else {
+          this.audio.playCrunch(0.5);
+          alert(`⚠️ [${ball.name}]의 플레이 횟수를 모두 소진했습니다!\n[💎 무제한 해금] 버튼을 눌러 무제한으로 플레이하세요!`);
+        }
+      });
+    });
+
+    // Unlock unlimited plays for saved ball (IAP simulation)
+    const unlockBtns = this.container.querySelectorAll('.btn-unlock-unlimited');
+    unlockBtns.forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await this.audio.unlock();
+        const id = (e.currentTarget as HTMLElement).getAttribute('data-unlock-id');
+        if (!id) return;
+        const ball = this.customizer.collection.getById(id);
+        if (!ball) return;
+
+        const success = this.customizer.collection.unlockUnlimited(id);
+        if (success) {
+          this.audio.playAbsorb(5);
+          alert(`🎉 [${ball.name}] 무제한 박살내기 이용권이 영구 해금되었습니다!\n이제 횟수 제한 없이 마음껏 플레이할 수 있습니다!`);
+          this.render();
+        }
+      });
+    });
+
     // Load from Collection
     const collectionItems = this.container.querySelectorAll('.collection-item');
     collectionItems.forEach((item) => {
       item.addEventListener('click', async (e) => {
         const target = e.target as HTMLElement;
-        if (target.classList.contains('btn-delete-ball')) return;
+        if (target.closest('.btn-delete-ball, .btn-play-smash, .btn-unlock-unlimited')) return;
 
         await this.audio.unlock();
         const id = (e.currentTarget as HTMLElement).getAttribute('data-ball-id');
@@ -838,7 +951,7 @@ export class UIManager {
           const loaded = this.customizer.loadFromCollection(id);
           if (loaded) {
             const mat = this.customizer.getMaterial();
-            this.studio.deformableBall.mesh.material = mat;
+            this.studio.loadSavedBall(loaded.maxDiameterCm / 200, mat);
             this.audio.playAbsorb(2);
             this.render();
           }
@@ -865,6 +978,24 @@ export class UIManager {
     if (modalStudioBtn) {
       this.bindTouchAndClick(modalStudioBtn, () => {
         this.state.setMode('STUDIO');
+      });
+    }
+
+    const saveInvBtn = document.getElementById('btn-modal-save-inventory');
+    if (saveInvBtn) {
+      this.bindTouchAndClick(saveInvBtn, async () => {
+        await this.audio.unlock();
+        const stats = this.state.getStats();
+        const currentStage = STAGES[stats.stageIndex] || STAGES[0];
+        const saved = this.customizer.saveCurrentBall(
+          stats.currentDiameterCm,
+          stats.absorbedCount,
+          currentStage.title.split(':')[0]
+        );
+        this.audio.playAbsorb(4);
+        saveInvBtn.innerHTML = `✅ [${saved.name}] 인벤토리 보관 완료! (5회 플레이 가능)`;
+        (saveInvBtn as HTMLButtonElement).disabled = true;
+        saveInvBtn.style.opacity = '0.85';
       });
     }
 

@@ -81,6 +81,10 @@ export class RollingBall {
     return this.targetRadius;
   }
 
+  public setTargetRadius(r: number): void {
+    this.targetRadius = r;
+  }
+
   public getPosition(): THREE.Vector3 {
     return this.position;
   }

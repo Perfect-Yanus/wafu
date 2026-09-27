@@ -4,12 +4,13 @@ import { asmrAudio } from '../audio/AsmrAudioEngine';
 
 export interface Hazard {
   readonly id: string;
-  readonly type: 'cactus' | 'spike' | 'sawblade';
+  readonly type: 'cactus' | 'spike' | 'sawblade' | 'moving_cactus' | 'monster' | 'patrol_sawblade';
   readonly mesh: THREE.Group;
   readonly position: THREE.Vector3;
   readonly radius: number;
   readonly shrinkFraction: number;
-  update(dt: number): void;
+  isDead?: boolean;
+  update(dt: number, ballPos?: THREE.Vector3, ballRadius?: number): void;
   checkCollision(ball: RollingBall): boolean;
 }
 
@@ -359,6 +360,402 @@ export class SawbladeHazard implements Hazard {
 
     const hitRadius = this.radius + ball.getRadius();
     if (distSq <= hitRadius * hitRadius) {
+      if (bPos.y < 2.4) {
+        ball.shrink(this.shrinkFraction);
+        return true;
+      }
+    }
+    return false;
+  }
+}
+
+/**
+ * 3b. MOVING CACTUS HAZARD (점프하며 순찰하는 움직이는 선인장)
+ * Hops back and forth along a patrol path, rotating and prickling
+ */
+export class MovingCactusHazard implements Hazard {
+  public readonly id: string;
+  public readonly type = 'moving_cactus' as const;
+  public readonly mesh: THREE.Group;
+  public readonly position: THREE.Vector3;
+  public readonly radius: number = 0.9;
+  public readonly shrinkFraction: number = 0.18;
+
+  private startPos: THREE.Vector3;
+  private endPos: THREE.Vector3;
+  private speed: number = 2.8;
+  private progress: number = 0;
+  private forward: boolean = true;
+  private dangerMarker: ReturnType<typeof createDangerMarker>;
+  private elapsedTime: number = 0;
+
+  constructor(id: string, startPos: THREE.Vector3, endPos: THREE.Vector3) {
+    this.id = id;
+    this.startPos = startPos.clone();
+    this.endPos = endPos.clone();
+    this.position = startPos.clone();
+
+    this.mesh = new THREE.Group();
+    this.mesh.position.copy(this.position);
+
+    // Build hopping cactus body
+    const cactusMat = new THREE.MeshStandardMaterial({
+      color: 0x1b4332,
+      roughness: 0.8,
+    });
+    const spineMat = new THREE.MeshStandardMaterial({
+      color: 0xffd166,
+      roughness: 0.3,
+    });
+
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.45, 2.0, 10), cactusMat);
+    body.position.y = 1.0;
+    body.castShadow = true;
+    this.mesh.add(body);
+
+    // Arms
+    const leftArm = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.6, 8), cactusMat);
+    leftArm.rotation.z = Math.PI / 2;
+    leftArm.position.set(-0.4, 1.2, 0);
+    const rightArm = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.6, 8), cactusMat);
+    rightArm.rotation.z = Math.PI / 2;
+    rightArm.position.set(0.4, 1.0, 0);
+    this.mesh.add(leftArm, rightArm);
+
+    // Cute funny angry eyebrows and prickles
+    const browMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+    const browL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.04, 0.05), browMat);
+    browL.position.set(-0.16, 1.45, 0.4);
+    browL.rotation.z = 0.25;
+    const browR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.04, 0.05), browMat);
+    browR.position.set(0.16, 1.45, 0.4);
+    browR.rotation.z = -0.25;
+    this.mesh.add(browL, browR);
+
+    // Spines
+    const needleGeom = new THREE.ConeGeometry(0.04, 0.2, 4);
+    for (let i = 0; i < 10; i++) {
+      const angle = (i / 10) * Math.PI * 2;
+      const needle = new THREE.Mesh(needleGeom, spineMat);
+      needle.position.set(Math.cos(angle) * 0.42, 0.6 + (i % 4) * 0.35, Math.sin(angle) * 0.42);
+      needle.rotation.x = Math.PI / 2;
+      needle.rotation.y = angle;
+      this.mesh.add(needle);
+    }
+
+    // Danger indicator
+    this.dangerMarker = createDangerMarker(this.radius, 2.7);
+    this.mesh.add(this.dangerMarker.group);
+  }
+
+  public update(dt: number, _ballPos?: THREE.Vector3, _ballRadius?: number): void {
+    this.elapsedTime += dt;
+    this.dangerMarker.update(this.elapsedTime);
+
+    // Move along patrol segment
+    const totalDist = this.startPos.distanceTo(this.endPos);
+    if (totalDist > 0.01) {
+      const step = (this.speed * dt) / totalDist;
+      if (this.forward) {
+        this.progress += step;
+        if (this.progress >= 1.0) {
+          this.progress = 1.0;
+          this.forward = false;
+        }
+      } else {
+        this.progress -= step;
+        if (this.progress <= 0.0) {
+          this.progress = 0.0;
+          this.forward = true;
+        }
+      }
+      this.position.lerpVectors(this.startPos, this.endPos, this.progress);
+    }
+
+    // Hopping animation
+    const hop = Math.abs(Math.sin(this.elapsedTime * 6.5)) * 0.45;
+    this.mesh.position.set(this.position.x, this.position.y + hop, this.position.z);
+    this.mesh.rotation.y = this.forward ? 0 : Math.PI;
+  }
+
+  public checkCollision(ball: RollingBall): boolean {
+    if (ball.isInvulnerable()) return false;
+    const bPos = ball.getPosition();
+    const dx = bPos.x - this.position.x;
+    const dz = bPos.z - this.position.z;
+    const hitRadius = this.radius + ball.getRadius();
+
+    if (dx * dx + dz * dz <= hitRadius * hitRadius) {
+      if (bPos.y < 2.6) {
+        ball.shrink(this.shrinkFraction);
+        return true;
+      }
+    }
+    return false;
+  }
+}
+
+/**
+ * 3c. STREET MONSTER HAZARD (거리의 추적 몬스터 / 슬라임 비스트)
+ * Aggressive monster with glowing red eyes and stomping feet.
+ * - Chases the ball if small (shrinks ball on impact)!
+ * - But if ball grows >= 0.85m radius (~170cm), monster panics and CAN BE ABSORBED!
+ */
+export class StreetMonsterHazard implements Hazard {
+  public readonly id: string;
+  public readonly type = 'monster' as const;
+  public readonly mesh: THREE.Group;
+  public readonly position: THREE.Vector3;
+  public readonly radius: number = 1.4;
+  public readonly shrinkFraction: number = 0.28;
+  public isDead: boolean = false;
+
+  private homePos: THREE.Vector3;
+  private roamAngle: number = 0;
+  private dangerMarker: ReturnType<typeof createDangerMarker>;
+  private eyeMat: THREE.MeshStandardMaterial;
+  private bodyMat: THREE.MeshStandardMaterial;
+  private legGroup: THREE.Group;
+  private elapsedTime: number = 0;
+  private isFleeing: boolean = false;
+
+  constructor(id: string, position: THREE.Vector3) {
+    this.id = id;
+    this.homePos = position.clone();
+    this.position = position.clone();
+
+    this.mesh = new THREE.Group();
+    this.mesh.position.copy(this.position);
+
+    // Menacing Dark Purple/Black Body
+    this.bodyMat = new THREE.MeshStandardMaterial({
+      color: 0x3a0ca3,
+      emissive: 0x1b004b,
+      roughness: 0.4,
+      metalness: 0.3,
+    });
+    const bodyMesh = new THREE.Mesh(new THREE.DodecahedronGeometry(1.0, 1), this.bodyMat);
+    bodyMesh.position.y = 1.2;
+    bodyMesh.castShadow = true;
+    this.mesh.add(bodyMesh);
+
+    // Glowing Eyes
+    this.eyeMat = new THREE.MeshStandardMaterial({
+      color: 0xff0054,
+      emissive: 0xff0054,
+      emissiveIntensity: 1.2,
+    });
+    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), this.eyeMat);
+    eyeL.position.set(-0.35, 1.45, 0.85);
+    const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), this.eyeMat);
+    eyeR.position.set(0.35, 1.45, 0.85);
+    this.mesh.add(eyeL, eyeR);
+
+    // Horns
+    const hornMat = new THREE.MeshStandardMaterial({ color: 0xffb703, roughness: 0.3 });
+    const hornGeom = new THREE.ConeGeometry(0.16, 0.6, 5);
+    const hornL = new THREE.Mesh(hornGeom, hornMat);
+    hornL.position.set(-0.55, 2.05, 0.1);
+    hornL.rotation.z = -0.4;
+    const hornR = new THREE.Mesh(hornGeom, hornMat);
+    hornR.position.set(0.55, 2.05, 0.1);
+    hornR.rotation.z = 0.4;
+    this.mesh.add(hornL, hornR);
+
+    // 4 Stomping Legs
+    this.legGroup = new THREE.Group();
+    const legMat = new THREE.MeshStandardMaterial({ color: 0x240046, roughness: 0.6 });
+    for (let x of [-0.5, 0.5]) {
+      for (let z of [-0.5, 0.5]) {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.22, 0.6, 8), legMat);
+        leg.position.set(x, 0.3, z);
+        this.legGroup.add(leg);
+      }
+    }
+    this.mesh.add(this.legGroup);
+
+    // Danger indicator
+    this.dangerMarker = createDangerMarker(this.radius, 2.9);
+    this.mesh.add(this.dangerMarker.group);
+  }
+
+  public update(dt: number, ballPos?: THREE.Vector3, ballRadius: number = 0.5): void {
+    if (this.isDead) return;
+    this.elapsedTime += dt;
+    this.dangerMarker.update(this.elapsedTime);
+
+    // Leg stomping animation
+    const stomp = Math.sin(this.elapsedTime * 9.0) * 0.15;
+    this.mesh.position.y = this.position.y + Math.abs(stomp);
+
+    const canBeAbsorbed = ballRadius >= 0.85; // Ball diameter >= 170cm
+
+    if (ballPos) {
+      const dx = ballPos.x - this.position.x;
+      const dz = ballPos.z - this.position.z;
+      const dist = Math.hypot(dx, dz);
+
+      if (canBeAbsorbed) {
+        // Monster is SCARED! Turns aqua blue and flees
+        if (!this.isFleeing) {
+          this.isFleeing = true;
+          this.bodyMat.color.setHex(0x4cc9f0);
+          this.bodyMat.emissive.setHex(0x0077b6);
+          this.eyeMat.color.setHex(0xffffff);
+          this.eyeMat.emissive.setHex(0x00f5d4);
+        }
+        if (dist < 18.0 && dist > 0.001) {
+          // Run away from ball
+          this.position.x -= (dx / dist) * 3.2 * dt;
+          this.position.z -= (dz / dist) * 3.2 * dt;
+        }
+      } else {
+        // Monster is AGGRESSIVE! Turns angry red-purple and chases ball
+        if (this.isFleeing) {
+          this.isFleeing = false;
+          this.bodyMat.color.setHex(0x3a0ca3);
+          this.bodyMat.emissive.setHex(0x1b004b);
+          this.eyeMat.color.setHex(0xff0054);
+          this.eyeMat.emissive.setHex(0xff0054);
+        }
+        if (dist < 15.0 && dist > 0.001) {
+          // Chase ball!
+          this.position.x += (dx / dist) * 3.6 * dt;
+          this.position.z += (dz / dist) * 3.6 * dt;
+          this.mesh.rotation.y = Math.atan2(dx, dz);
+        } else {
+          // Roam around home position
+          this.roamAngle += dt * 0.7;
+          const targetX = this.homePos.x + Math.cos(this.roamAngle) * 6.0;
+          const targetZ = this.homePos.z + Math.sin(this.roamAngle) * 6.0;
+          this.position.x += (targetX - this.position.x) * dt * 1.5;
+          this.position.z += (targetZ - this.position.z) * dt * 1.5;
+        }
+      }
+    }
+
+    this.mesh.position.x = this.position.x;
+    this.mesh.position.z = this.position.z;
+  }
+
+  public checkCollision(ball: RollingBall): boolean {
+    if (this.isDead || ball.isInvulnerable()) return false;
+    const bPos = ball.getPosition();
+    const bRadius = ball.getRadius();
+    const dx = bPos.x - this.position.x;
+    const dz = bPos.z - this.position.z;
+    const hitRadius = this.radius + bRadius;
+
+    if (dx * dx + dz * dz <= hitRadius * hitRadius) {
+      if (bRadius >= 0.85) {
+        // Player ball absorbs the monster!
+        this.isDead = true;
+        this.mesh.visible = false;
+        ball.setTargetRadius(bRadius + 0.225);
+        asmrAudio.playPop();
+        asmrAudio.playAbsorb(5);
+        return false;
+      } else {
+        // Monster bites/stomps ball!
+        ball.shrink(this.shrinkFraction);
+        asmrAudio.playHammerSmash();
+        return true;
+      }
+    }
+    return false;
+  }
+}
+
+/**
+ * 3d. PATROLLING SAWBLADE HAZARD (레일을 따라 왕복 순찰하는 톱날)
+ */
+export class PatrollingSawbladeHazard implements Hazard {
+  public readonly id: string;
+  public readonly type = 'patrol_sawblade' as const;
+  public readonly mesh: THREE.Group;
+  public readonly position: THREE.Vector3;
+  public readonly radius: number = 1.3;
+  public readonly shrinkFraction: number = 0.25;
+
+  private startPos: THREE.Vector3;
+  private endPos: THREE.Vector3;
+  private speed: number = 4.2;
+  private progress: number = 0;
+  private forward: boolean = true;
+  private bladeMesh: THREE.Mesh;
+  private dangerMarker: ReturnType<typeof createDangerMarker>;
+  private elapsedTime: number = 0;
+
+  constructor(id: string, startPos: THREE.Vector3, endPos: THREE.Vector3) {
+    this.id = id;
+    this.startPos = startPos.clone();
+    this.endPos = endPos.clone();
+    this.position = startPos.clone();
+
+    this.mesh = new THREE.Group();
+    this.mesh.position.copy(this.position);
+
+    // Motorized Track Base
+    const baseMat = new THREE.MeshStandardMaterial({ color: 0x212529, metalness: 0.8 });
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.25, 0.8), baseMat);
+    base.position.y = 0.12;
+    this.mesh.add(base);
+
+    // Spinning Sawblade
+    const bladeMat = new THREE.MeshStandardMaterial({
+      color: 0xe0e1dd,
+      metalness: 0.95,
+      roughness: 0.15,
+      emissive: 0xff3838,
+      emissiveIntensity: 0.35,
+    });
+    this.bladeMesh = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 0.08, 18), bladeMat);
+    this.bladeMesh.rotation.x = Math.PI / 2;
+    this.bladeMesh.position.y = 0.9;
+    this.mesh.add(this.bladeMesh);
+
+    // Danger indicator
+    this.dangerMarker = createDangerMarker(this.radius, 2.4);
+    this.mesh.add(this.dangerMarker.group);
+  }
+
+  public update(dt: number, _ballPos?: THREE.Vector3, _ballRadius?: number): void {
+    this.elapsedTime += dt;
+    this.dangerMarker.update(this.elapsedTime);
+
+    // Spin blade
+    this.bladeMesh.rotation.z += dt * 16.0;
+
+    // Move back and forth
+    const totalDist = this.startPos.distanceTo(this.endPos);
+    if (totalDist > 0.01) {
+      const step = (this.speed * dt) / totalDist;
+      if (this.forward) {
+        this.progress += step;
+        if (this.progress >= 1.0) {
+          this.progress = 1.0;
+          this.forward = false;
+        }
+      } else {
+        this.progress -= step;
+        if (this.progress <= 0.0) {
+          this.progress = 0.0;
+          this.forward = true;
+        }
+      }
+      this.position.lerpVectors(this.startPos, this.endPos, this.progress);
+      this.mesh.position.copy(this.position);
+    }
+  }
+
+  public checkCollision(ball: RollingBall): boolean {
+    if (ball.isInvulnerable()) return false;
+    const bPos = ball.getPosition();
+    const dx = bPos.x - this.position.x;
+    const dz = bPos.z - this.position.z;
+    const hitRadius = this.radius + ball.getRadius();
+
+    if (dx * dx + dz * dz <= hitRadius * hitRadius) {
       if (bPos.y < 2.4) {
         ball.shrink(this.shrinkFraction);
         return true;

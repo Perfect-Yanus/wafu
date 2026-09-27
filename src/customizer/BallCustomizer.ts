@@ -67,13 +67,14 @@ export class BallCustomizer {
     this.state.ballName = name;
   }
 
-  public saveCurrentBall(maxDiameterCm: number, itemsCount: number): SavedWafuBall {
+  public saveCurrentBall(maxDiameterCm: number, itemsCount: number, stageName?: string): SavedWafuBall {
     return this.collection.saveBall({
       name: this.state.ballName || '나만의 와뿌볼',
       color: this.state.currentColor,
       materialPreset: this.state.currentPreset,
       maxDiameterCm,
       itemsAbsorbedCount: itemsCount,
+      stageName: stageName ?? '자유 모드',
     });
   }
 
