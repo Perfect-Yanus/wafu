@@ -340,14 +340,9 @@ export class Game {
     if (!openBriefing) {
       this.state.closeBriefing();
     }
-    this.state.updateStats({
-      currentDiameterCm: this.rollingBall.getRadius() * 200,
-      absorbedCount: 0,
-      targetDiameterCm: stage.targetDiameterCm,
-      timeRemaining: stage.timeLimitSec,
-    });
     this.cameraAzimuth = 0;
     this.cameraElevation = 0.35;
+    this.uiManager.render();
   }
 
   public resetCity(): void {
@@ -355,6 +350,24 @@ export class Game {
   }
 
   private updateCity(dt: number): void {
+    // 0. Pause game physics and timers when briefing modal or victory/gameover is active
+    const stats = this.state.getStats();
+    if (stats.stageBriefingActive || stats.isVictory || stats.isGameOver) {
+      this.rollingBall.getVelocity().set(0, 0, 0);
+      const ballPos = this.rollingBall.getPosition();
+      const r = this.rollingBall.getRadius();
+      const horizDist = (3.6 + r * 3.4) * Math.cos(this.cameraElevation);
+      const camHeight = (3.6 + r * 3.4) * Math.sin(this.cameraElevation) + r * 0.45;
+      const targetCamPos = new THREE.Vector3(
+        ballPos.x + Math.sin(this.cameraAzimuth) * horizDist,
+        ballPos.y + camHeight,
+        ballPos.z + Math.cos(this.cameraAzimuth) * horizDist
+      );
+      this.camera.position.lerp(targetCamPos, Math.min(1.0, dt * 6.5));
+      this.camera.lookAt(ballPos.x, ballPos.y + r * 0.4, ballPos.z);
+      return;
+    }
+
     // 1. Gather directional input
     const inputDir = new THREE.Vector2(0, 0);
 

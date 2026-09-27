@@ -423,7 +423,7 @@ export class CityWorld {
       new THREE.Vector3(50, 0.5, -25),
       new THREE.Vector3(-20, 0.5, -50),
       new THREE.Vector3(20, 0.5, 50),
-      new THREE.Vector3(0, 0.5, 0), // At central plaza fountain
+      new THREE.Vector3(0, 0.5, 24),
     ];
     bonusLocations.forEach((pos, idx) => {
       const tb = new TimeBonusItem(`bonus-${idx}`, pos);
@@ -540,6 +540,10 @@ export class CityWorld {
     }
     this.repulsionItems.length = 0;
     this.repulsionShieldTimer = 0;
+
+    for (const ring of this.indicatorPool) {
+      ring.visible = false;
+    }
 
     this.spawnHazardsAndBonuses();
     this.spawnCharacters(stage.isPlanetSphere ? 16 : 28);

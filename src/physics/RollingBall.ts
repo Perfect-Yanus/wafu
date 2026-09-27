@@ -432,16 +432,18 @@ export class RollingBall {
   /**
    * Reset ball to initial state
    */
-  public reset(initialRadius: number = 0.125): void {
+  public reset(initialRadius: number = 0.125, spawnPos?: THREE.Vector3): void {
     this.radius = initialRadius;
     this.targetRadius = initialRadius;
     this.totalMass = 5.0;
     this.velocity.set(0, 0, 0);
     this.acceleration.set(0, 0, 0);
     this.inputVector.set(0, 0);
+    this.boostTimer = 0;
     this.invulnerableTimer = 0;
     this.coyoteTimer = 0;
     this.jumpBufferTimer = 0;
+    this.grounded = true;
     this.visualBall.visible = true;
 
     // Remove all absorbed items from group
@@ -454,7 +456,8 @@ export class RollingBall {
     this.visualBall.scale.set(scaleFactor, scaleFactor, scaleFactor);
     this.visualBall.quaternion.identity();
     this.absorbedGroup.quaternion.identity();
-    this.position.set(0, this.radius, 0);
+    const spawn = spawnPos ?? new THREE.Vector3(0, this.radius, 10);
+    this.position.copy(spawn);
     this.group.position.copy(this.position);
   }
 }

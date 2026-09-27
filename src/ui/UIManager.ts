@@ -5,6 +5,7 @@ import { BallCustomizer } from '../customizer/BallCustomizer';
 import { MaterialPresetId } from '../customizer/Materials';
 import { FillingType, ShellType, WafuMaker } from '../studio/WafuMaker';
 import { STAGES } from '../world/StageManager';
+import confetti from 'canvas-confetti';
 
 export class UIManager {
   private container: HTMLElement;
@@ -19,6 +20,7 @@ export class UIManager {
   private onStageSelectCb: ((stageIndex: number) => void) | null = null;
   private onStartGameCb: (() => void) | null = null;
   private hazardAlertTimeout?: number;
+  private currentModalType: 'victory' | 'gameover' | 'none' = 'none';
 
   constructor(
     container: HTMLElement,
@@ -70,7 +72,8 @@ export class UIManager {
     }
   }
 
-  private render(): void {
+  public render(): void {
+    this.currentModalType = 'none';
     const mode = this.state.getMode();
     const stats = this.state.getStats();
     const currentStage = STAGES[stats.stageIndex] || STAGES[0];
@@ -627,67 +630,90 @@ export class UIManager {
       // Victory / Game Over Modal check
       const modal = document.getElementById('modal-challenge');
       if (modal) {
-        if (stats.isVictory || stats.isGameOver) {
+        const targetModalType: 'victory' | 'gameover' | 'none' = stats.isVictory
+          ? 'victory'
+          : stats.isGameOver
+            ? 'gameover'
+            : 'none';
+
+        if (targetModalType !== 'none') {
           modal.style.display = 'flex';
-          const iconEl = document.getElementById('modal-icon');
-          const titleEl = document.getElementById('modal-title');
-          const bodyEl = document.getElementById('modal-body');
 
-          const btnWrap = document.getElementById('modal-buttons-container');
+          if (this.currentModalType !== targetModalType) {
+            this.currentModalType = targetModalType;
 
-          if (stats.isVictory) {
-            if (iconEl) iconEl.textContent = '🎉';
-            if (titleEl) titleEl.textContent = '축하합니다! 스테이지 클리어!';
-            if (bodyEl) {
-              const currentStage = STAGES[stats.stageIndex] || STAGES[0];
-              bodyEl.innerHTML = `
-                <p style="color:#e2e8f0;">와뿌볼이 거대해졌습니다! 도시의 빌딩과 캐릭터들을 완벽히 흡수했습니다.<br><strong style="color:var(--accent-pink);">이제 스튜디오에서 와뿌볼을 다양한 도구로 시원하게 박살내며 놀아보세요!</strong></p>
-                <div class="modal-stats">
-                  <div>도달 스테이지: <strong>${currentStage.title}</strong></div>
-                  <div>최종 직경: <strong>${stats.currentDiameterCm.toFixed(1)} cm</strong> (목표: ${stats.targetDiameterCm} cm)</div>
-                  <div>흡수한 물체: <strong>${stats.absorbedCount} 개</strong></div>
-                  <div>남은 시간: <strong>${Math.floor(stats.timeRemaining)} 초</strong></div>
-                </div>
-              `;
-            }
-            if (btnWrap) {
-              btnWrap.innerHTML = `
-                <button id="btn-modal-studio" class="btn-primary btn-smash-highlight" style="font-size:16px; padding:14px; width:100%;">
-                  💥 와뿌볼 박살내기! (스튜디오 이동)
-                </button>
-                <button id="btn-modal-save-inventory" class="btn-secondary" style="font-weight:700; width:100%; border:1px solid var(--accent-cyan); color:#e0f2fe; margin-top:8px;">
-                  📦 이번 와뿌볼 인벤토리에 보관 (소장하기)
-                </button>
-                ${
-                  stats.stageIndex < STAGES.length - 1
-                    ? `<button id="btn-modal-next-stage" class="btn-secondary" style="font-weight:700; width:100%; margin-top:8px;">➡️ 다음 스테이지 도전 (${STAGES[stats.stageIndex + 1].title.split(':')[0]})</button>`
-                    : ''
-                }
-                <button id="btn-modal-retry" class="btn-secondary" style="width:100%; margin-top:8px;">🔄 현재 스테이지 다시 하기</button>
-              `;
-              this.bindChallengeModalButtons();
-            }
-          } else {
-            if (iconEl) iconEl.textContent = '⏳';
-            if (titleEl) titleEl.textContent = '시간 종료! (Time Over)';
-            if (bodyEl) {
-              bodyEl.innerHTML = `
-                <p>도전 시간이 모두 흘렀습니다! 선인장과 톱날을 피하고 보너스 시계를 모아보세요.</p>
-                <div class="modal-stats">
-                  <div>도달 직경: <strong>${stats.currentDiameterCm.toFixed(1)} cm</strong> (목표: ${stats.targetDiameterCm} cm)</div>
-                  <div>흡수한 물체: <strong>${stats.absorbedCount} 개</strong></div>
-                </div>
-              `;
-            }
-            if (btnWrap) {
-              btnWrap.innerHTML = `
-                <button id="btn-modal-retry" class="btn-primary" style="width:100%;">🔄 다시 도전하기</button>
-                <button id="btn-modal-freeroll" class="btn-secondary" style="width:100%;">♾️ 무제한 자유 모드로 계속하기</button>
-              `;
-              this.bindChallengeModalButtons();
+            const iconEl = document.getElementById('modal-icon');
+            const titleEl = document.getElementById('modal-title');
+            const bodyEl = document.getElementById('modal-body');
+            const btnWrap = document.getElementById('modal-buttons-container');
+
+            if (targetModalType === 'victory') {
+              if (iconEl) iconEl.textContent = '🎉';
+              if (titleEl) titleEl.textContent = '축하합니다! 스테이지 클리어!';
+              if (bodyEl) {
+                const currentStage = STAGES[stats.stageIndex] || STAGES[0];
+                bodyEl.innerHTML = `
+                  <p style="color:#e2e8f0;">와뿌볼이 거대해졌습니다! 도시의 빌딩과 캐릭터들을 완벽히 흡수했습니다.<br><strong style="color:var(--accent-pink);">이제 스튜디오에서 와뿌볼을 다양한 도구로 시원하게 박살내며 놀아보세요!</strong></p>
+                  <div class="modal-stats">
+                    <div>도달 스테이지: <strong>${currentStage.title}</strong></div>
+                    <div>최종 직경: <strong>${stats.currentDiameterCm.toFixed(1)} cm</strong> (목표: ${stats.targetDiameterCm} cm)</div>
+                    <div>흡수한 물체: <strong>${stats.absorbedCount} 개</strong></div>
+                    <div>남은 시간: <strong>${Math.floor(stats.timeRemaining)} 초</strong></div>
+                  </div>
+                `;
+              }
+              if (btnWrap) {
+                btnWrap.innerHTML = `
+                  <button id="btn-modal-studio" class="btn-primary btn-smash-highlight" style="font-size:16px; padding:14px; width:100%;">
+                    💥 와뿌볼 박살내기! (스튜디오 이동)
+                  </button>
+                  <button id="btn-modal-save-inventory" class="btn-secondary" style="font-weight:700; width:100%; border:1px solid var(--accent-cyan); color:#e0f2fe; margin-top:8px;">
+                    📦 이번 와뿌볼 인벤토리에 보관 (소장하기)
+                  </button>
+                  ${
+                    stats.stageIndex < STAGES.length - 1
+                      ? `<button id="btn-modal-next-stage" class="btn-secondary" style="font-weight:700; width:100%; margin-top:8px;">➡️ 다음 스테이지 도전 (${STAGES[stats.stageIndex + 1].title.split(':')[0]})</button>`
+                      : ''
+                  }
+                  <button id="btn-modal-retry" class="btn-secondary" style="width:100%; margin-top:8px;">🔄 현재 스테이지 다시 하기</button>
+                `;
+                this.bindChallengeModalButtons();
+              }
+
+              // Celebratory Confetti & ASMR
+              try {
+                confetti({
+                  particleCount: 75,
+                  spread: 65,
+                  origin: { y: 0.6 },
+                });
+              } catch {
+                // Ignore in tests
+              }
+              this.audio.playAbsorb(5);
+            } else {
+              if (iconEl) iconEl.textContent = '⏳';
+              if (titleEl) titleEl.textContent = '시간 종료! (Time Over)';
+              if (bodyEl) {
+                bodyEl.innerHTML = `
+                  <p>도전 시간이 모두 흘렀습니다! 선인장과 톱날을 피하고 보너스 시계를 모아보세요.</p>
+                  <div class="modal-stats">
+                    <div>도달 직경: <strong>${stats.currentDiameterCm.toFixed(1)} cm</strong> (목표: ${stats.targetDiameterCm} cm)</div>
+                    <div>흡수한 물체: <strong>${stats.absorbedCount} 개</strong></div>
+                  </div>
+                `;
+              }
+              if (btnWrap) {
+                btnWrap.innerHTML = `
+                  <button id="btn-modal-retry" class="btn-primary" style="width:100%;">🔄 다시 도전하기</button>
+                  <button id="btn-modal-freeroll" class="btn-secondary" style="width:100%;">♾️ 무제한 자유 모드로 계속하기</button>
+                `;
+                this.bindChallengeModalButtons();
+              }
             }
           }
         } else {
+          this.currentModalType = 'none';
           modal.style.display = 'none';
         }
       }
@@ -711,9 +737,9 @@ export class UIManager {
     // Briefing modal stage tab buttons
     const stageTabs = this.container.querySelectorAll('.stage-tab-btn');
     stageTabs.forEach((tab) => {
-      tab.addEventListener('click', async (e) => {
+      this.bindTouchAndClick(tab as HTMLElement, async () => {
         await this.audio.unlock();
-        const idxStr = (e.currentTarget as HTMLElement).getAttribute('data-stage-idx');
+        const idxStr = (tab as HTMLElement).getAttribute('data-stage-idx');
         if (idxStr !== null) {
           const idx = parseInt(idxStr, 10);
           this.onStageSelectCb?.(idx);
@@ -971,12 +997,18 @@ export class UIManager {
         }
       });
     });
+
+    // Ensure challenge modal buttons are wired if modal is present
+    this.bindChallengeModalButtons();
   }
 
   private bindChallengeModalButtons(): void {
     const modalStudioBtn = document.getElementById('btn-modal-studio');
     if (modalStudioBtn) {
       this.bindTouchAndClick(modalStudioBtn, () => {
+        const stats = this.state.getStats();
+        const mat = this.customizer.getMaterial();
+        this.studio.loadSavedBall(stats.currentDiameterCm / 200, mat);
         this.state.setMode('STUDIO');
       });
     }
@@ -993,7 +1025,7 @@ export class UIManager {
           currentStage.title.split(':')[0]
         );
         this.audio.playAbsorb(4);
-        saveInvBtn.innerHTML = `✅ [${saved.name}] 인벤토리 보관 완료! (5회 플레이 가능)`;
+        saveInvBtn.innerHTML = `✅ [${saved.name}] 인벤토리에 안전하게 소장 완료!`;
         (saveInvBtn as HTMLButtonElement).disabled = true;
         saveInvBtn.style.opacity = '0.85';
       });
