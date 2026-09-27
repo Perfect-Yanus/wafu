@@ -74,7 +74,7 @@ export class Game {
     // City environment
     this.cityWorld = new CityWorld(this.scene, { citySize: 120, itemCount: 650 });
     this.cityWorld.onBallShrunk = (hazardType: string) => {
-      this.uiManager.showHazardAlert(hazardType);
+      this.uiManager?.showHazardAlert(hazardType);
     };
     this.cityWorld.onTimeBonusCollected = (bonusSec: number) => {
       this.state.addBonusTime(bonusSec);
@@ -84,7 +84,10 @@ export class Game {
       this.state.triggerVictory();
     };
     this.cityWorld.onPortalBlocked = (targetCm: number) => {
-      this.uiManager.showHazardAlert(`portal_locked:${targetCm.toFixed(0)}`);
+      this.uiManager?.showHazardAlert(`portal_locked:${targetCm.toFixed(0)}`);
+    };
+    this.cityWorld.onObjectBlocked = (itemName: string, reqCm: number, curCm: number) => {
+      this.uiManager?.showBlockedAlert(itemName, reqCm, curCm);
     };
 
     // Studio environment

@@ -6,6 +6,28 @@ import { BoostPad, Trampoline, DestructibleWall, SuperMagnetGadget } from './Cit
 import { Hazard, CactusHazard, SpikeTrapHazard, SawbladeHazard, TimeBonusItem } from './Hazards';
 import { STAGES, StageConfig, DimensionPortal } from './StageManager';
 import { LivingCharacter } from './Characters';
+import { asmrAudio } from '../audio/AsmrAudioEngine';
+
+export interface StaticBoxObstacle {
+  type: 'box';
+  x: number;
+  z: number;
+  hw: number;
+  hd: number;
+  h: number;
+  label?: string;
+}
+
+export interface StaticCylinderObstacle {
+  type: 'cylinder';
+  x: number;
+  z: number;
+  radius: number;
+  height: number;
+  label?: string;
+}
+
+export type StaticObstacle = StaticBoxObstacle | StaticCylinderObstacle;
 
 export interface CityWorldConfig {
   itemCount?: number;
@@ -19,6 +41,14 @@ export class CityWorld {
   private absorbedCount: number = 0;
   private citySize: number;
   private groundGroup: THREE.Group;
+
+  // Static Obstacles (Maze walls, barricades, fountain)
+  public readonly staticObstacles: StaticObstacle[] = [];
+
+  // Proximity Indicator Pool (Green = can absorb, Orange = too big)
+  private indicatorGroup: THREE.Group = new THREE.Group();
+  private indicatorPool: THREE.Mesh[] = [];
+  private readonly MAX_INDICATORS = 24;
 
   // Stage & Portal
   public currentStage: StageConfig = STAGES[0];
@@ -42,6 +72,8 @@ export class CityWorld {
   public onBallShrunk?: (hazardType: string) => void;
   public onPortalEntered?: () => void;
   public onPortalBlocked?: (requiredCm: number) => void;
+  public onObjectBlocked?: (itemName: string, requiredCm: number, currentCm: number) => void;
+  private lastBlockedAlertTime: number = 0;
 
   constructor(scene: THREE.Scene, config: CityWorldConfig = {}) {
     this.scene = scene;
@@ -50,6 +82,7 @@ export class CityWorld {
     this.groundGroup = new THREE.Group();
     this.scene.add(this.groundGroup);
 
+    this.initIndicatorPool();
     this.createCityGround();
     this.createLighting();
     this.spawnGadgets();
@@ -143,6 +176,16 @@ export class CityWorld {
             hw.castShadow = true;
             hw.receiveShadow = true;
             this.groundGroup.add(hw);
+
+            this.staticObstacles.push({
+              type: 'box',
+              x: x + mw.ox,
+              z: z + mw.oz,
+              hw: mw.w / 2,
+              hd: mw.d / 2,
+              h: mw.h + 0.2,
+              label: 'hedge_wall',
+            });
           }
         } else {
           // Urban Alley Barricades & Jersey Barriers
@@ -156,6 +199,16 @@ export class CityWorld {
             bm.castShadow = true;
             bm.receiveShadow = true;
             this.groundGroup.add(bm);
+
+            this.staticObstacles.push({
+              type: 'box',
+              x: x + b.ox,
+              z: z + b.oz,
+              hw: b.w / 2,
+              hd: b.d / 2,
+              h: b.h + 0.2,
+              label: 'barricade',
+            });
           }
         }
       }
@@ -206,6 +259,16 @@ export class CityWorld {
       wall.castShadow = true;
       wall.receiveShadow = true;
       this.groundGroup.add(wall);
+
+      this.staticObstacles.push({
+        type: 'box',
+        x: posX,
+        z: posZ,
+        hw: width / 2,
+        hd: depth / 2,
+        h: wallHeight,
+        label: 'perimeter_wall',
+      });
     };
 
     createWall(this.citySize * 2, wallThickness, 0, -this.citySize);
@@ -515,7 +578,10 @@ export class CityWorld {
       }
     }
 
-    // 9. Absorbable items collision
+    // 9. Static Obstacle Collisions (Hedge maze walls, barricades, fountain, boundaries)
+    this.resolveStaticObstacleCollisions(ball);
+
+    // 10. Absorbable items collision
     for (let i = this.items.length - 1; i >= 0; i--) {
       const item = this.items[i];
       if (item.isAbsorbed()) {
@@ -552,19 +618,197 @@ export class CityWorld {
           }
         } else {
           const overlap = combinedRadius - dist;
-          if (dist > 0.001) {
-            const pushX = (dx / dist) * overlap * 0.4;
-            const pushZ = (dz / dist) * overlap * 0.4;
-            ballPos.x += pushX;
-            ballPos.z += pushZ;
+          if (dist > 0.0001) {
+            const normalX = dx / dist;
+            const normalZ = dz / dist;
+
+            // Elastic separation push-out
+            ballPos.x += normalX * (overlap + 0.015);
+            ballPos.z += normalZ * (overlap + 0.015);
 
             const vel = ball.getVelocity();
-            vel.x *= -0.25;
-            vel.z *= -0.25;
+            const dot = vel.x * normalX + vel.z * normalZ;
+
+            if (dot < 0) {
+              // Elastic bounce restitution
+              vel.x -= (1 + 0.35) * dot * normalX;
+              vel.z -= (1 + 0.35) * dot * normalZ;
+
+              // Heavy bounce ASMR sound
+              asmrAudio.playBounceHeavy(Math.min(1.0, Math.abs(dot) / 5.0));
+
+              // Inform player why the ball bounced
+              const now = performance.now();
+              if (now - this.lastBlockedAlertTime > 1200) {
+                this.lastBlockedAlertTime = now;
+                const reqCm = (item.radius / 0.95) * 200;
+                const curCm = ballRadius * 200;
+                this.onObjectBlocked?.(item.name, reqCm, curCm);
+              }
+            }
           }
         }
       }
     }
+
+    // 11. Update proximity indicator rings (green for absorbable, amber for too big)
+    this.updateProximityIndicators(ball);
+  }
+
+  private initIndicatorPool(): void {
+    this.indicatorGroup = new THREE.Group();
+    this.scene.add(this.indicatorGroup);
+
+    const ringGeom = new THREE.RingGeometry(0.82, 1.0, 24);
+    ringGeom.rotateX(-Math.PI / 2);
+
+    for (let i = 0; i < this.MAX_INDICATORS; i++) {
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0x00f5d4,
+        transparent: true,
+        opacity: 0.75,
+        side: THREE.DoubleSide,
+      });
+      const ring = new THREE.Mesh(ringGeom, mat);
+      ring.position.y = 0.04;
+      ring.visible = false;
+      this.indicatorPool.push(ring);
+      this.indicatorGroup.add(ring);
+    }
+  }
+
+  public updateProximityIndicators(ball: RollingBall): void {
+    const ballPos = ball.getPosition();
+    const maxDistSq = 16.0 * 16.0;
+
+    let ringIdx = 0;
+    const time = Date.now() * 0.005;
+
+    for (let i = 0; i < this.items.length; i++) {
+      if (ringIdx >= this.MAX_INDICATORS) break;
+      const item = this.items[i];
+      if (item.isAbsorbed()) continue;
+
+      const itemPos = item.getWorldPosition();
+      const dx = ballPos.x - itemPos.x;
+      const dz = ballPos.z - itemPos.z;
+      const dSq = dx * dx + dz * dz;
+
+      if (dSq <= maxDistSq) {
+        const ring = this.indicatorPool[ringIdx];
+        const canEat = ball.canAbsorb(item);
+        const ringMat = ring.material as THREE.MeshBasicMaterial;
+
+        ring.visible = true;
+        ring.position.set(itemPos.x, 0.04, itemPos.z);
+        const scale = item.radius * 1.35;
+        ring.scale.set(scale, 1, scale);
+
+        if (canEat) {
+          // Emerald Green / Cyan pulsing aura (Absorbable)
+          ringMat.color.setHex(0x00f5d4);
+          ringMat.opacity = 0.65 + 0.25 * Math.sin(time + ringIdx);
+        } else {
+          // Amber / Orange warning ring (Too big / bounce)
+          ringMat.color.setHex(0xff7b00);
+          ringMat.opacity = 0.5 + 0.2 * Math.sin(time * 0.8 + ringIdx);
+        }
+
+        ringIdx++;
+      }
+    }
+
+    // Hide remaining unused rings
+    for (let i = ringIdx; i < this.MAX_INDICATORS; i++) {
+      this.indicatorPool[i].visible = false;
+    }
+  }
+
+  public resolveStaticObstacleCollisions(ball: RollingBall): boolean {
+    const ballPos = ball.getPosition();
+    const ballRadius = ball.getRadius();
+    const vel = ball.getVelocity();
+    let collided = false;
+
+    for (let i = 0; i < this.staticObstacles.length; i++) {
+      const obs = this.staticObstacles[i];
+
+      if (obs.type === 'box') {
+        if (ballPos.y > obs.h + ballRadius) continue;
+
+        const clampedX = Math.max(obs.x - obs.hw, Math.min(obs.x + obs.hw, ballPos.x));
+        const clampedZ = Math.max(obs.z - obs.hd, Math.min(obs.z + obs.hd, ballPos.z));
+
+        const dx = ballPos.x - clampedX;
+        const dz = ballPos.z - clampedZ;
+        const distSq = dx * dx + dz * dz;
+
+        if (distSq < ballRadius * ballRadius) {
+          collided = true;
+          const dist = Math.sqrt(distSq);
+          let normalX = 0;
+          let normalZ = 1;
+          let pen = ballRadius - dist;
+
+          if (dist > 0.0001) {
+            normalX = dx / dist;
+            normalZ = dz / dist;
+          } else {
+            // Ball center inside box: find shallowest axis to eject cleanly
+            const penLeft = (ballPos.x - (obs.x - obs.hw));
+            const penRight = ((obs.x + obs.hw) - ballPos.x);
+            const penBottom = (ballPos.z - (obs.z - obs.hd));
+            const penTop = ((obs.z + obs.hd) - ballPos.z);
+            const minPen = Math.min(penLeft, penRight, penBottom, penTop);
+
+            if (minPen === penLeft) {
+              normalX = -1; normalZ = 0; pen = penLeft + ballRadius;
+            } else if (minPen === penRight) {
+              normalX = 1; normalZ = 0; pen = penRight + ballRadius;
+            } else if (minPen === penBottom) {
+              normalX = 0; normalZ = -1; pen = penBottom + ballRadius;
+            } else {
+              normalX = 0; normalZ = 1; pen = penTop + ballRadius;
+            }
+          }
+
+          ballPos.x += normalX * pen;
+          ballPos.z += normalZ * pen;
+
+          const dot = vel.x * normalX + vel.z * normalZ;
+          if (dot < 0) {
+            vel.x -= (1 + 0.35) * dot * normalX;
+            vel.z -= (1 + 0.35) * dot * normalZ;
+            asmrAudio.playWallBump(Math.min(1.0, Math.abs(dot) / 5.0));
+          }
+        }
+      } else if (obs.type === 'cylinder') {
+        if (ballPos.y > obs.height + ballRadius) continue;
+
+        const dx = ballPos.x - obs.x;
+        const dz = ballPos.z - obs.z;
+        const dist = Math.hypot(dx, dz);
+        const combRadius = obs.radius + ballRadius;
+
+        if (dist < combRadius) {
+          collided = true;
+          const normalX = dist > 0.0001 ? dx / dist : 1;
+          const normalZ = dist > 0.0001 ? dz / dist : 0;
+          const pen = combRadius - dist;
+
+          ballPos.x += normalX * pen;
+          ballPos.z += normalZ * pen;
+
+          const dot = vel.x * normalX + vel.z * normalZ;
+          if (dot < 0) {
+            vel.x -= (1 + 0.35) * dot * normalX;
+            vel.z -= (1 + 0.35) * dot * normalZ;
+            asmrAudio.playWallBump(Math.min(1.0, Math.abs(dot) / 5.0));
+          }
+        }
+      }
+    }
+    return collided;
   }
 
   public clampBallToBounds(ball: RollingBall): void {

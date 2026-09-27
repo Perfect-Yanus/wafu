@@ -615,6 +615,58 @@ export class AsmrAudioEngine {
   }
 
   /**
+   * 14b. WALL BUMP ASMR (벽 및 장애물 충돌음)
+   * Deep tactile solid thud with low resonance
+   */
+  public playWallBump(intensity: number = 0.5): void {
+    if (!this.ctx || !this.masterGain || this.muted) return;
+    const t = this.ctx.currentTime;
+
+    const osc = this.ctx.createOscillator();
+    const oscGain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(140, t);
+    osc.frequency.exponentialRampToValueAtTime(45, t + 0.09);
+
+    const gainVal = Math.min(0.6, 0.25 + intensity * 0.35);
+    oscGain.gain.setValueAtTime(gainVal, t);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
+
+    osc.connect(oscGain);
+    oscGain.connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.12);
+  }
+
+  /**
+   * 14c. HEAVY OBJECT BOUNCE ASMR (흡수하기에 너무 무거운 물체 충돌음)
+   * Heavy elastic rubbery boing-thump
+   */
+  public playBounceHeavy(intensity: number = 0.6): void {
+    if (!this.ctx || !this.masterGain || this.muted) return;
+    const t = this.ctx.currentTime;
+
+    // Deep boing pitch slide
+    const osc = this.ctx.createOscillator();
+    const oscGain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(180, t);
+    osc.frequency.exponentialRampToValueAtTime(75, t + 0.14);
+
+    const gainVal = Math.min(0.7, 0.3 + intensity * 0.35);
+    oscGain.gain.setValueAtTime(gainVal, t);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+
+    osc.connect(oscGain);
+    oscGain.connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.18);
+
+    // Subtle squish layer
+    this.playSquish(0.35);
+  }
+
+  /**
    * 15. TIME BONUS ASMR (보너스 시계 획득 차임벨)
    * Bright crystal chime arpeggio
    */

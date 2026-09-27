@@ -14,6 +14,63 @@ export interface Hazard {
 }
 
 /**
+ * Helper to create an animated danger beacon (overhead pulsing diamond + exclamation mark)
+ * and a ground warning perimeter ring
+ */
+function createDangerMarker(radius: number, topHeight: number) {
+  const group = new THREE.Group();
+
+  // 1. Ground warning ring
+  const ringGeom = new THREE.RingGeometry(radius * 0.88, radius * 1.18, 28);
+  ringGeom.rotateX(-Math.PI / 2);
+  const ringMat = new THREE.MeshBasicMaterial({
+    color: 0xff0054,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.7,
+  });
+  const ring = new THREE.Mesh(ringGeom, ringMat);
+  ring.position.y = 0.04;
+  group.add(ring);
+
+  // 2. Overhead floating danger marker
+  const beaconGroup = new THREE.Group();
+  beaconGroup.position.y = topHeight;
+
+  const diamondGeom = new THREE.OctahedronGeometry(0.32);
+  const diamondMat = new THREE.MeshStandardMaterial({
+    color: 0xff0054,
+    emissive: 0xff0054,
+    emissiveIntensity: 0.9,
+    roughness: 0.2,
+  });
+  const diamond = new THREE.Mesh(diamondGeom, diamondMat);
+  beaconGroup.add(diamond);
+
+  // Exclamation mark
+  const whiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const exclBar = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.22, 8), whiteMat);
+  exclBar.position.y = 0.04;
+  const exclDot = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), whiteMat);
+  exclDot.position.y = -0.14;
+  beaconGroup.add(exclBar, exclDot);
+
+  group.add(beaconGroup);
+
+  return {
+    group,
+    update: (time: number) => {
+      const pulse = 0.45 + 0.35 * Math.sin(time * 5.0);
+      ringMat.opacity = pulse;
+      ring.scale.setScalar(1.0 + 0.06 * Math.sin(time * 4.0));
+
+      beaconGroup.position.y = topHeight + Math.sin(time * 3.5) * 0.12;
+      beaconGroup.rotation.y = time * 2.2;
+    },
+  };
+}
+
+/**
  * 1. CACTUS HAZARD (선인장)
  * Saguaro style prickly cactus with needle spikes and desert flower
  */
@@ -26,6 +83,8 @@ export class CactusHazard implements Hazard {
   public readonly shrinkFraction: number = 0.16;
 
   private needleGroup: THREE.Group;
+  private dangerMarker: ReturnType<typeof createDangerMarker>;
+  private elapsedTime: number = 0;
 
   constructor(id: string, position: THREE.Vector3) {
     this.id = id;
@@ -96,10 +155,15 @@ export class CactusHazard implements Hazard {
     const flower = new THREE.Mesh(new THREE.DodecahedronGeometry(0.18), flowerMat);
     flower.position.set(0, 2.25, 0);
     this.mesh.add(flower);
+
+    // Danger indicator
+    this.dangerMarker = createDangerMarker(this.radius, 2.85);
+    this.mesh.add(this.dangerMarker.group);
   }
 
-  public update(_dt: number): void {
-    // Subtle prickle idle animation
+  public update(dt: number): void {
+    this.elapsedTime += dt;
+    this.dangerMarker.update(this.elapsedTime);
   }
 
   public checkCollision(ball: RollingBall): boolean {
@@ -134,6 +198,8 @@ export class SpikeTrapHazard implements Hazard {
   public readonly shrinkFraction: number = 0.22;
 
   private spikeMat: THREE.MeshStandardMaterial;
+  private dangerMarker: ReturnType<typeof createDangerMarker>;
+  private elapsedTime: number = 0;
 
   constructor(id: string, position: THREE.Vector3) {
     this.id = id;
@@ -179,9 +245,16 @@ export class SpikeTrapHazard implements Hazard {
         this.mesh.add(spike);
       }
     }
+
+    // Danger indicator
+    this.dangerMarker = createDangerMarker(this.radius, 1.8);
+    this.mesh.add(this.dangerMarker.group);
   }
 
-  public update(_dt: number): void {
+  public update(dt: number): void {
+    this.elapsedTime += dt;
+    this.dangerMarker.update(this.elapsedTime);
+
     // Pulse warning glow
     const pulse = (Math.sin(Date.now() * 0.006) + 1) * 0.2 + 0.1;
     this.spikeMat.emissiveIntensity = pulse;
@@ -219,6 +292,8 @@ export class SawbladeHazard implements Hazard {
   public readonly shrinkFraction: number = 0.26;
 
   private bladeMesh: THREE.Group;
+  private dangerMarker: ReturnType<typeof createDangerMarker>;
+  private elapsedTime: number = 0;
 
   constructor(id: string, position: THREE.Vector3) {
     this.id = id;
@@ -260,9 +335,16 @@ export class SawbladeHazard implements Hazard {
     }
 
     this.mesh.add(this.bladeMesh);
+
+    // Danger indicator
+    this.dangerMarker = createDangerMarker(this.radius, 2.5);
+    this.mesh.add(this.dangerMarker.group);
   }
 
   public update(dt: number): void {
+    this.elapsedTime += dt;
+    this.dangerMarker.update(this.elapsedTime);
+
     // Spin rapidly
     this.bladeMesh.rotation.z -= dt * 14.0;
   }

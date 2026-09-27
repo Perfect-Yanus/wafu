@@ -175,20 +175,57 @@ export class DestructibleWall {
     const ballPos = ball.getPosition();
     const ballRadius = ball.getRadius();
 
-    const dx = ballPos.x - this.position.x;
-    const dz = ballPos.z - this.position.z;
+    const hw = this.width / 2;
+    const hd = 0.35; // wall half thickness
 
-    if (Math.abs(dz) < ballRadius + 0.5 && Math.abs(dx) < this.width / 2 + ballRadius) {
+    const clampedX = Math.max(this.position.x - hw, Math.min(this.position.x + hw, ballPos.x));
+    const clampedZ = Math.max(this.position.z - hd, Math.min(this.position.z + hd, ballPos.z));
+
+    const dx = ballPos.x - clampedX;
+    const dz = ballPos.z - clampedZ;
+    const distSq = dx * dx + dz * dz;
+
+    if (distSq < ballRadius * ballRadius) {
       const speed = ball.getVelocity().length();
 
-      // Shatter condition: speed >= 13 or radius >= 1.1
-      if (speed >= 13.0 || ballRadius >= 1.1) {
+      // Shatter condition: scaled to 1/3 speed scale (speed >= 7.5 or radius >= 0.9m)
+      if (speed >= 7.5 || ballRadius >= 0.9) {
         this.shatter(ball.getVelocity());
         return true;
       } else {
-        // Push back
-        ballPos.z = this.position.z + (dz > 0 ? (ballRadius + 0.6) : -(ballRadius + 0.6));
-        ball.getVelocity().z *= -0.3;
+        const dist = Math.sqrt(distSq);
+        let normalX = 0;
+        let normalZ = 1;
+        let pen = ballRadius - dist;
+
+        if (dist > 0.0001) {
+          normalX = dx / dist;
+          normalZ = dz / dist;
+        } else {
+          // Inside wall: push along shallower axis
+          const penX = hw - Math.abs(ballPos.x - this.position.x);
+          const penZ = hd - Math.abs(ballPos.z - this.position.z);
+          if (penX < penZ) {
+            normalX = ballPos.x >= this.position.x ? 1 : -1;
+            normalZ = 0;
+            pen = penX + ballRadius;
+          } else {
+            normalX = 0;
+            normalZ = ballPos.z >= this.position.z ? 1 : -1;
+            pen = penZ + ballRadius;
+          }
+        }
+
+        ballPos.x += normalX * pen;
+        ballPos.z += normalZ * pen;
+
+        const vel = ball.getVelocity();
+        const dot = vel.x * normalX + vel.z * normalZ;
+        if (dot < 0) {
+          vel.x -= (1 + 0.35) * dot * normalX;
+          vel.z -= (1 + 0.35) * dot * normalZ;
+          asmrAudio.playWallBump(0.4);
+        }
       }
     }
     return false;

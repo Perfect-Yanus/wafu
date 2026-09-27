@@ -178,8 +178,20 @@ export class UIManager {
     const currentStage = STAGES[stats.stageIndex] || STAGES[0];
 
     return `
-      <!-- Hazard Alert Notification Banner -->
+      <!-- Hazard Alert Notification Banner & Damage Screen Vignette -->
+      <div id="damage-vignette" class="damage-vignette"></div>
       <div id="hazard-alert" class="hazard-alert"></div>
+
+      <!-- Object & Hazard Visual Guide Legend -->
+      <div id="hud-legend" class="glass-panel hud-legend">
+        <span>🟢 흡수가능</span>
+        <span class="legend-divider">|</span>
+        <span>🟠 너무큼 (튕김)</span>
+        <span class="legend-divider">|</span>
+        <span>⚠️ 위험함 (축소)</span>
+        <span class="legend-divider">|</span>
+        <span>🧱 벽 (충돌반사)</span>
+      </div>
 
       <!-- Mobile / Screen Action Buttons -->
       <div class="city-action-buttons">
@@ -456,23 +468,43 @@ export class UIManager {
 
   public showHazardAlert(hazardType: string): void {
     const alertEl = document.getElementById('hazard-alert');
+    const vignetteEl = document.getElementById('damage-vignette');
+
+    if (vignetteEl && !hazardType.startsWith('portal_locked')) {
+      vignetteEl.classList.add('flash');
+      window.setTimeout(() => vignetteEl.classList.remove('flash'), 320);
+    }
+
     if (!alertEl) return;
     if (hazardType.startsWith('portal_locked')) {
       const parts = hazardType.split(':');
       const req = parts[1] || '180';
       alertEl.textContent = `🌀 포털 잠김! 크기가 부족합니다 (목표: ${req}cm 필요)`;
+      alertEl.className = 'hazard-alert visible';
     } else {
       const messages: Record<string, string> = {
         cactus: '🌵 선인장 바늘에 찔림! 크기 축소 (-16%)',
         spike: '⚠️ 날카로운 가시 트랩 충돌! 크기 축소 (-22%)',
         sawblade: '⚡ 회전 톱날 피해! 크기 대폭 축소 (-26%)',
       };
-      alertEl.textContent = messages[hazardType] || '⚠️ 날카로운 물체에 찔림!';
+      alertEl.textContent = messages[hazardType] || '⚠️ 날카로운 장애물 충돌! 크기 축소';
+      alertEl.className = 'hazard-alert visible';
     }
-    alertEl.classList.add('visible');
     if (this.hazardAlertTimeout) clearTimeout(this.hazardAlertTimeout);
     this.hazardAlertTimeout = window.setTimeout(() => {
       alertEl.classList.remove('visible');
+    }, 1600);
+  }
+
+  public showBlockedAlert(itemName: string, reqCm: number, curCm: number): void {
+    const alertEl = document.getElementById('hazard-alert');
+    if (!alertEl) return;
+    alertEl.textContent = `🧱 [${itemName}] 너무 커서 튕겼습니다! (현재: ${curCm.toFixed(0)}cm / 필요: ${reqCm.toFixed(0)}cm)`;
+    alertEl.className = 'hazard-alert visible blocked';
+    if (this.hazardAlertTimeout) clearTimeout(this.hazardAlertTimeout);
+    this.hazardAlertTimeout = window.setTimeout(() => {
+      alertEl.classList.remove('visible');
+      alertEl.classList.remove('blocked');
     }, 1600);
   }
 
